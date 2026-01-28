@@ -1,0 +1,44 @@
+const express = require('express');
+const router = express.Router();
+const auth = require('../middlewares/auth.middleware');
+
+router.patch('/__probe', (req, res) => {
+  res.send('PATCH PROBE OK');
+});
+
+
+const {
+  create,
+  send,
+  list,
+  generateQuotePdf,
+  updateStatus
+} = require('../modules/quotes/quotes.controller');
+
+console.log('🟢 quotes.routes.js cargado DEFINITIVO');
+
+// =======================
+// PRESUPUESTOS (CON AUTH)
+// =======================
+
+// Crear presupuesto
+router.post('/', auth(), create);
+
+// Listar presupuestos
+router.get('/', auth(), list);
+
+// 👉 🔥 ESTA ES LA QUE FALTABA (DRAG & DROP)
+router.patch('/:id/status', auth(), updateStatus);
+
+// Enviar presupuesto
+router.post('/:id/send', auth(), send);
+
+router.patch('/:id/status', auth, updateStatus);
+
+
+// =======================
+// PDF (SIN AUTH)
+// =======================
+router.get('/:id/pdf', generateQuotePdf);
+
+module.exports = router;
