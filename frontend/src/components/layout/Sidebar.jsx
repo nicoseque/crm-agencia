@@ -6,6 +6,23 @@ function Sidebar() {
     window.location.href = '/login';
   };
 
+  // 🔐 obtener rol desde el token
+  const token = localStorage.getItem('token');
+  let role = null;
+
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      role = payload.role;
+    } catch (e) {
+      role = null;
+    }
+  }
+
+  // 👑 roles con acceso completo
+  const canSeeAdminSections =
+    role === 'ADMIN' || role === 'SUPERVISOR';
+
   const linkStyle = ({ isActive }) => ({
     padding: '10px 14px',
     borderRadius: 10,
@@ -51,35 +68,40 @@ function Sidebar() {
       </div>
 
       {/* MENU */}
-<nav style={{ flex: 1 }}>
-  <NavLink to="/" style={linkStyle}>
-    Inicio
-  </NavLink>
+      <nav style={{ flex: 1 }}>
+        <NavLink to="/" style={linkStyle}>
+          Inicio
+        </NavLink>
 
-  <NavLink to="/clients" style={linkStyle}>
-    Clientes
-  </NavLink>
+        <NavLink to="/clients" style={linkStyle}>
+          Clientes
+        </NavLink>
 
-  <NavLink to="/ranking" style={linkStyle}>
-    Ranking de Vendedores
-  </NavLink>
+        <NavLink to="/ranking" style={linkStyle}>
+          Ranking de Vendedores
+        </NavLink>
 
-  <NavLink to="/sales-history" style={linkStyle}>
-    Histórico de Ventas
-  </NavLink>
+        {/* 🔒 SOLO ADMIN / SUPERVISOR */}
+        {canSeeAdminSections && (
+          <>
+            <NavLink to="/sales-history" style={linkStyle}>
+              Histórico de Ventas
+            </NavLink>
 
-  <NavLink to="/gestion-comercial" style={linkStyle}>
-    Gestión Comercial
-  </NavLink>
+            <NavLink to="/gestion-comercial" style={linkStyle}>
+              Gestión Comercial
+            </NavLink>
 
-  <NavLink to="/users" style={linkStyle}>
-    Usuarios
-  </NavLink>
+            <NavLink to="/users" style={linkStyle}>
+              Usuarios
+            </NavLink>
 
-  <NavLink to="/audit/users" style={linkStyle}>
-    Auditoría
-  </NavLink>
-</nav>
+            <NavLink to="/audit/users" style={linkStyle}>
+              Auditoría
+            </NavLink>
+          </>
+        )}
+      </nav>
 
       {/* LOGOUT */}
       <button

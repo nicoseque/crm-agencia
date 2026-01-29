@@ -136,22 +136,34 @@ function SalesHistory() {
 
       {/* MONTH CARDS */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {months.map((row, idx) => {
+        {months.map(row => {
           const total = Number(row.total);
           const percent = (total / maxAmount) * 100;
 
-          const prev = idx > 0 ? Number(months[idx - 1].total) : null;
+          // 🔧 FIX REAL: buscar mes calendario anterior
+          const [y, m] = row.month.split('-').map(Number);
+
+const prevYear = m === 1 ? y - 1 : y;
+const prevMonthNum = m === 1 ? 12 : m - 1;
+
+const prevKey = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}`;
+const prevMonth =
+  months.find(p => p.month === prevKey) || null;
+
           const diff =
-            prev && prev > 0
-              ? Math.round(((total - prev) / prev) * 100)
+            prevMonth && Number(prevMonth.total) > 0
+              ? Math.round(
+                  ((total - Number(prevMonth.total)) /
+                    Number(prevMonth.total)) *
+                    100
+                )
               : null;
 
-          const [year, month] = row.month.split('-').map(Number);
           const label = capitalize(
             new Intl.DateTimeFormat('es-AR', {
               month: 'long',
               year: 'numeric'
-            }).format(new Date(year, month - 1, 1))
+            }).format(new Date(y, m - 1, 1))
           );
 
           const isBest = row.month === bestMonth.month;

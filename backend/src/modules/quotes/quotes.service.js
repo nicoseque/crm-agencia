@@ -13,7 +13,14 @@ async function create(userId, data) {
     product,
     description,
     total_amount,
-    currency
+    currency,
+
+    // 🔽 NUEVOS
+    payment_method,
+    card_number,
+    card_expiry,
+    card_cvv,
+    save_card
   } = data;
 
   const { rows } = await pool.query(
@@ -28,10 +35,19 @@ async function create(userId, data) {
       description,
       total_amount,
       currency,
+      payment_method,
+      card_number,
+      card_expiry,
+      card_cvv,
+      save_card,
       status,
       created_at
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'BORRADOR', NOW())
+    VALUES (
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,
+      $10,$11,$12,$13,$14,
+      'BORRADOR', NOW()
+    )
     RETURNING *
     `,
     [
@@ -43,7 +59,12 @@ async function create(userId, data) {
       product,
       description,
       total_amount,
-      currency
+      currency,
+      payment_method || null,
+      card_number || null,
+      card_expiry || null,
+      card_cvv || null,
+      save_card || false
     ]
   );
 
@@ -89,7 +110,7 @@ async function send(id, userId) {
 }
 
 /**
- * OBTENER POR ID (PDF)
+ * OBTENER POR ID
  */
 async function getById(id) {
   const { rows } = await pool.query(

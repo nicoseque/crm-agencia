@@ -20,25 +20,28 @@ function SalesByMonthChart({ refreshToken }) {
 
   if (!data.length) return null;
 
+  // ✅ CAMBIO ULTRA SEGURO: solo invertimos para render
+  const renderData = [...data].reverse();
+
   const amounts = data.map(d => Number(d.total) || 0);
   const maxAmount = Math.max(...amounts, 1);
 
   return (
-<div
-  style={{
-    marginTop: 40,
-    padding: 20,
-    border: '1px solid #e5e7eb',
-    borderRadius: 12,
-    background: '#ffffff',
-    color: '#111827'
-  }}
->
+    <div
+      style={{
+        marginTop: 40,
+        padding: 20,
+        border: '1px solid #e5e7eb',
+        borderRadius: 12,
+        background: '#ffffff',
+        color: '#111827'
+      }}
+    >
       <h3 style={{ marginBottom: 20, fontSize: 16, fontWeight: 700 }}>
         Ventas aprobadas por mes
       </h3>
 
-      {data.map(row => {
+      {renderData.map(row => {
         const total = Number(row.total) || 0;
         const percent = (total / maxAmount) * 100;
 

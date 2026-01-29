@@ -222,17 +222,26 @@ router.get('/sales-by-seller', auth(), async (req, res) => {
 router.get('/sales-by-month', auth(), async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT
-        TO_CHAR(
-          date_trunc('month', resolved_at::date),
-          'YYYY-MM'
-        ) AS month,
-        COALESCE(SUM(total_amount), 0)::numeric AS total
-      FROM quotes
-      WHERE status = 'APROBADO'
-        AND resolved_at IS NOT NULL
-      GROUP BY month
-      ORDER BY month
+SELECT
+  month,
+  total,
+  CASE
+    WHEN prev_total IS NULL OR prev_total = 0 THEN NULL
+    ELSE ROUND(((total - prev_total) / prev_total) * 100)
+  END AS variation_percent
+FROM (
+  SELECT
+    TO_CHAR(date_trunc('month', resolved_at), 'YYYY-MM') AS month,
+    SUM(total_amount)::numeric AS total,
+    LAG(SUM(total_amount)) OVER (
+      ORDER BY date_trunc('month', resolved_at)
+    ) AS prev_total
+  FROM quotes
+  WHERE status = 'APROBADO'
+    AND resolved_at IS NOT NULL
+  GROUP BY date_trunc('month', resolved_at)
+) t
+ORDER BY month DESC
     `);
 
     noCache(res);

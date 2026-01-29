@@ -6,6 +6,8 @@ const { generateQuotePdf } = require('../../services/pdf.service');
  */
 async function create(req, res) {
   try {
+    console.log('BODY CREATE QUOTE:', req.body);
+
     const {
       seller_id,
       client_dni,
@@ -15,7 +17,14 @@ async function create(req, res) {
       product,
       description,
       total_amount,
-      currency
+      currency,
+
+      // 🔽 NUEVOS CAMPOS
+      payment_method,
+      card_number,
+      card_expiry,
+      card_cvv,
+      save_card
     } = req.body;
 
     const quote = await service.create(req.user.id, {
@@ -27,7 +36,13 @@ async function create(req, res) {
       product,
       description,
       total_amount,
-      currency
+      currency,
+
+      payment_method,
+      card_number,
+      card_expiry,
+      card_cvv,
+      save_card
     });
 
     res.status(201).json(quote);
@@ -62,7 +77,7 @@ async function list(req, res) {
 }
 
 /**
- * ACTUALIZAR STATUS (DRAG & DROP)
+ * ACTUALIZAR STATUS
  */
 async function updateStatus(req, res) {
   try {
@@ -79,7 +94,7 @@ async function updateStatus(req, res) {
 }
 
 /**
- * GENERAR PDF (DELEGADO A PUPPETEER)
+ * GENERAR PDF
  */
 async function generateQuotePdfController(req, res) {
   try {

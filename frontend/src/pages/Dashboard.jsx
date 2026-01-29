@@ -52,38 +52,26 @@ function Dashboard() {
   };
 
   /* =========================
-     🔥 FECHA RELATIVA + VENCIDO
+     🔥 CÁLCULO DE VENCIDOS
      ========================= */
-  const computeTimeInfo = (createdAt, status) => {
-    if (!createdAt) {
-      return { text: 'Sin fecha', expired: false };
-    }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-    const created = new Date(createdAt);
-    const today = new Date();
-    created.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
+  const expiredCount = columns.reduce((acc, col) => {
+    col.leads?.forEach(lead => {
+      if (!lead.created_at) return;
+      if (lead.status === 'APROBADO' || lead.status === 'CANCELADO') return;
 
-    const diffDays = Math.floor(
-      (today - created) / (1000 * 60 * 60 * 24)
-    );
+      const created = new Date(lead.created_at);
+      created.setHours(0, 0, 0, 0);
 
-    const text =
-      diffDays <= 0
-        ? 'Hoy'
-        : `Hace ${diffDays} día${diffDays !== 1 ? 's' : ''}`;
+      const diffDays =
+        (today - created) / (1000 * 60 * 60 * 24);
 
-    const expired =
-      diffDays >= 3 &&
-      status !== 'APROBADO' &&
-      status !== 'CANCELADO';
-
-    return { text, expired };
-  };
-
-  const timeInfo = selectedLead
-    ? computeTimeInfo(selectedLead.created_at, selectedLead.status)
-    : null;
+      if (diffDays >= 3) acc += 1;
+    });
+    return acc;
+  }, 0);
 
   return (
     <>
@@ -102,6 +90,22 @@ function Dashboard() {
             value={loadingKpis ? '…' : kpis?.leads_activos ?? 0}
             subtitle="En pipeline"
             icon="📋"
+            footer={
+              expiredCount > 0 && (
+                <div
+                  onClick={() => setShowExpiredOnly(v => !v)}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: '#dc2626',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {expiredCount}{' '}
+                  {expiredCount === 1 ? 'vencido' : 'vencidos'}
+                </div>
+              )
+            }
           />
 
           <MetricCard
@@ -112,11 +116,30 @@ function Dashboard() {
           />
 
           <MetricCard
-            title="Tasa de aprobación"
-            value={loadingKpis ? '…' : `${kpis?.tasa_aprobacion ?? 0}%`}
-            subtitle="Aprobados / Evaluados"
-            icon="📈"
-          />
+  title="Tasa de aprobación"
+  value={
+    loadingKpis
+      ? '…'
+      : `${
+          (kpis?.aprobados +
+            kpis?.enviados +
+            kpis?.cancelados +
+            kpis?.leads_activos) > 0
+            ? Math.round(
+                (kpis.aprobados /
+                  (kpis.aprobados +
+                    kpis.enviados +
+                    kpis.cancelados +
+                    kpis.leads_activos)) *
+                  100
+              )
+            : 0
+        }%`
+  }
+  subtitle="Aprobados / Generados"
+  icon="📈"
+/>
+
 
           <MetricCard
             title="Ventas del mes"
@@ -164,36 +187,13 @@ function Dashboard() {
         />
       </main>
 
-      {/* =========================
-          👉 SIDEBAR MEJORADO
-          ========================= */}
+      {/* SIDEBAR */}
       {selectedLead && (
         <div style={panelWrapper}>
-          {/* HEADER */}
           <div style={panelHeader}>
-            <div>
-              <div style={{ fontWeight: 800 }}>
-                Presupuesto #{selectedLead.id}
-              </div>
-
-              <div style={{ fontSize: 12, color: '#9ca3af' }}>
-                {selectedLead.status} · {timeInfo.text}
-              </div>
-
-              {timeInfo.expired && (
-                <div
-                  style={{
-                    marginTop: 4,
-                    fontSize: 11,
-                    fontWeight: 800,
-                    color: '#ef4444'
-                  }}
-                >
-                  VENCIDO · RESOLVER
-                </div>
-              )}
+            <div style={{ fontWeight: 800 }}>
+              Presupuesto #{selectedLead.id}
             </div>
-
             <button
               onClick={() => setSelectedLead(null)}
               style={closeIcon}
@@ -202,17 +202,24 @@ function Dashboard() {
             </button>
           </div>
 
-          {/* CONTENT */}
           <div style={panelContent}>
-            <Section label="Cliente">
-              {selectedLead.client_name}
-            </Section>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                CLIENTE
+              </div>
+              <div style={{ fontSize: 15 }}>
+                {selectedLead.client_name}
+              </div>
+            </div>
 
-            <Section label="Monto">
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                MONTO
+              </div>
               <div style={{ fontSize: 22, fontWeight: 800 }}>
                 $ {Number(selectedLead.amount || 0).toLocaleString('es-AR')}
               </div>
-            </Section>
+            </div>
 
             <button
               onClick={() =>
@@ -243,7 +250,6 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* FOOTER */}
           <div style={panelFooter}>
             <button
               onClick={() => setSelectedLead(null)}
@@ -255,7 +261,7 @@ function Dashboard() {
         </div>
       )}
 
-      {/* BOTÓN NUEVO PRESUPUESTO */}
+      {/* NUEVO PRESUPUESTO */}
       <button
         onClick={() => setOpenCreateQuote(true)}
         title="Nuevo presupuesto"
@@ -372,12 +378,3 @@ const footerClose = {
   borderRadius: 8,
   cursor: 'pointer'
 };
-
-const Section = ({ label, children }) => (
-  <div style={{ marginBottom: 16 }}>
-    <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>
-      {label}
-    </div>
-    <div style={{ fontSize: 15 }}>{children}</div>
-  </div>
-);

@@ -12,6 +12,13 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
   const [clientFound, setClientFound] = useState(null);
   const [checkingDni, setCheckingDni] = useState(false);
 
+  // 🔽 Forma de pago
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [saveCard, setSaveCard] = useState(false);
+
   const [form, setForm] = useState({
     seller_id: '',
     client_dni: '',
@@ -24,7 +31,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
     currency: 'ARS'
   });
 
-  // 🔄 Reset + carga de usuarios al abrir
   useEffect(() => {
     if (!open) return;
 
@@ -33,32 +39,29 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
     setVendors([]);
     setLoadingUsers(true);
 
+    setPaymentMethod('');
+    setCardNumber('');
+    setCardExpiry('');
+    setCardCvv('');
+    setSaveCard(false);
+
     getAssignableUsers()
-      .then(data => {
-        setVendors(data || []);
-      })
-      .catch(() => {
-        setError('No se pudieron cargar los usuarios asignables');
-      })
-      .finally(() => {
-        setLoadingUsers(false);
-      });
+      .then(data => setVendors(data || []))
+      .catch(() => setError('No se pudieron cargar los usuarios asignables'))
+      .finally(() => setLoadingUsers(false));
   }, [open]);
 
   if (!open) return null;
 
-  const handleChange = (e) => {
+  const handleChange = e => {
     setForm(prev => ({
       ...prev,
       [e.target.name]: e.target.value
     }));
   };
 
-  // 🆕 AUTOCOMPLETE POR DNI (DNI NO obligatorio)
   const handleDniBlur = async () => {
     const dni = form.client_dni.trim();
-
-    // 👉 Sin DNI: no validar y no bloquear
     if (!dni) {
       setClientFound(null);
       return;
@@ -78,18 +81,14 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
         }));
       }
     } catch (err) {
-      // apiFetch tira Error genérico
-      if (err.message?.includes('404')) {
-        setClientFound(false);
-      } else {
-        setError('Error buscando cliente por DNI');
-      }
+      if (err.message?.includes('404')) setClientFound(false);
+      else setError('Error buscando cliente por DNI');
     } finally {
       setCheckingDni(false);
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     setError(null);
 
@@ -98,7 +97,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
       return;
     }
 
-    // 🛑 SOLO bloquear si hay DNI y NO existe
     if (form.client_dni.trim() && clientFound === false) {
       setError(
         'El DNI ingresado no pertenece a un cliente existente. Registrá el cliente o quitá el DNI.'
@@ -119,8 +117,13 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
         description: form.description?.trim() || null,
         total_amount: Number(form.total_amount),
         currency: form.currency,
-        plan_id: null,
-        vehicle_id: null
+
+        // 🔽 NUEVO: se envía todo
+        payment_method: paymentMethod || null,
+        card_number: paymentMethod === 'TARJETA' ? cardNumber : null,
+        card_expiry: paymentMethod === 'TARJETA' ? cardExpiry : null,
+        card_cvv: paymentMethod === 'TARJETA' ? cardCvv : null,
+        save_card: paymentMethod === 'TARJETA' ? saveCard : false
       });
 
       onCreated();
@@ -135,7 +138,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
   return (
     <div style={overlay}>
       <div style={modal}>
-        {/* HEADER */}
         <div style={header}>
           <div>
             <h2 style={{ margin: 0 }}>Nuevo presupuesto</h2>
@@ -143,12 +145,10 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
               Cargá los datos del cliente y del responsable
             </p>
           </div>
-
           <button onClick={onClose} style={closeBtn}>✕</button>
         </div>
 
         <form onSubmit={handleSubmit} style={formStyle}>
-          {/* RESPONSABLE */}
           <Field label="Responsable comercial">
             <select
               name="seller_id"
@@ -158,7 +158,7 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
               disabled={loadingUsers}
             >
               <option value="">
-                {loadingUsers ? 'Cargando usuarios…' : 'Seleccionar usuario'}
+                {loadingUsers ? 'Cargando usuarios…' : 'Seleccionar Vendedor'}
               </option>
               {vendors.map(u => (
                 <option key={u.id} value={u.id}>
@@ -168,7 +168,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
             </select>
           </Field>
 
-          {/* CLIENTE */}
           <div style={grid2}>
             <Field label="DNI">
               <input
@@ -177,16 +176,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
                 onChange={handleChange}
                 onBlur={handleDniBlur}
               />
-              {checkingDni && (
-                <small style={{ fontSize: 11, color: '#6b7280' }}>
-                  Buscando cliente…
-                </small>
-              )}
-              {clientFound === false && (
-                <small style={{ fontSize: 11, color: '#dc2626' }}>
-                  El DNI no pertenece a un cliente registrado
-                </small>
-              )}
             </Field>
 
             <Field label="Nombre">
@@ -208,7 +197,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
             </Field>
           </div>
 
-          {/* PRODUCTO */}
           <div style={grid2}>
             <Field label="Producto">
               <input
@@ -238,7 +226,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
             />
           </Field>
 
-          {/* MONTO */}
           <div style={grid2}>
             <Field label="Monto total">
               <input
@@ -262,28 +249,65 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
             </Field>
           </div>
 
+          <Field label="Forma de pago">
+            <select
+              value={paymentMethod}
+              onChange={e => setPaymentMethod(e.target.value)}
+            >
+              <option value="">Seleccionar forma de pago</option>
+              <option value="EFECTIVO">Efectivo</option>
+              <option value="TRANSFERENCIA">Transferencia</option>
+              <option value="TARJETA">Tarjeta de crédito</option>
+            </select>
+          </Field>
+
+          {paymentMethod === 'TARJETA' && (
+            <div style={cardBox}>
+              <Field label="Número de tarjeta">
+                <input
+                  value={cardNumber}
+                  onChange={e => setCardNumber(e.target.value)}
+                />
+              </Field>
+
+              <div style={grid2}>
+                <Field label="Vencimiento (MM/AA)">
+                  <input
+                    value={cardExpiry}
+                    onChange={e => setCardExpiry(e.target.value)}
+                  />
+                </Field>
+
+                <Field label="CVV">
+                  <input
+                    value={cardCvv}
+                    onChange={e => setCardCvv(e.target.value)}
+                  />
+                </Field>
+              </div>
+
+              <label style={{ fontSize: 13 }}>
+                <input
+                  type="checkbox"
+                  checked={saveCard}
+                  onChange={e => setSaveCard(e.target.checked)}
+                />{' '}
+                Guardar datos de la tarjeta
+              </label>
+            </div>
+          )}
+
           {error && (
             <div style={{ color: '#dc2626', fontSize: 13 }}>
               {error}
             </div>
           )}
 
-          {/* ACTIONS */}
           <div style={actions}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={cancelBtn}
-              disabled={loading}
-            >
+            <button type="button" onClick={onClose} style={cancelBtn}>
               Cancelar
             </button>
-
-            <button
-              type="submit"
-              disabled={loading}
-              style={submitBtn}
-            >
+            <button type="submit" disabled={loading} style={submitBtn}>
               {loading ? 'Creando…' : 'Crear presupuesto'}
             </button>
           </div>
@@ -298,9 +322,7 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
 function Field({ label, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
-        {label}
-      </label>
+      <label style={{ fontSize: 12, fontWeight: 600 }}>{label}</label>
       {children}
     </div>
   );
@@ -322,14 +344,12 @@ const modal = {
   background: '#fff',
   borderRadius: 16,
   width: 560,
-  padding: 24,
-  boxShadow: '0 20px 60px rgba(0,0,0,.2)'
+  padding: 24
 };
 
 const header = {
   display: 'flex',
   justifyContent: 'space-between',
-  alignItems: 'flex-start',
   marginBottom: 20
 };
 
@@ -337,8 +357,7 @@ const closeBtn = {
   border: 'none',
   background: 'transparent',
   fontSize: 20,
-  cursor: 'pointer',
-  color: '#6b7280'
+  cursor: 'pointer'
 };
 
 const formStyle = {
@@ -353,20 +372,24 @@ const grid2 = {
   gap: 16
 };
 
+const cardBox = {
+  padding: 16,
+  border: '1px solid #e5e7eb',
+  borderRadius: 10,
+  background: '#f9fafb'
+};
+
 const actions = {
   display: 'flex',
   justifyContent: 'flex-end',
-  gap: 12,
-  marginTop: 10
+  gap: 12
 };
 
 const cancelBtn = {
   padding: '10px 16px',
   borderRadius: 10,
   border: '1px solid #e5e7eb',
-  background: '#fff',
-  fontWeight: 600,
-  cursor: 'pointer'
+  background: '#fff'
 };
 
 const submitBtn = {
@@ -374,9 +397,7 @@ const submitBtn = {
   borderRadius: 10,
   border: 'none',
   background: '#2563eb',
-  color: '#fff',
-  fontWeight: 600,
-  cursor: 'pointer'
+  color: '#fff'
 };
 
 export default CreateQuoteModal;
