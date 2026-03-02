@@ -9,6 +9,10 @@ import GestionComercial from '../pages/GestionComercial';
 import Clients from '../pages/Clients'; // ✅ NUEVO
 import ProtectedRoute from './ProtectedRoute';
 import DashboardLikeLayout from '../components/layout/DashboardLikeLayout';
+import Quotes from '../pages/Quotes';
+import Products from '../pages/Products';
+
+
 
 function AppRouter() {
   return (
@@ -36,7 +40,10 @@ function AppRouter() {
           <Route path="sales-history" element={<SalesHistory />} />
           <Route path="gestion-comercial" element={<GestionComercial />} />
           <Route path="users" element={<Users />} />
+          <Route path="quotes" element={<Quotes />} />
           <Route path="audit/users" element={<AuditUsers />} />
+          <Route path="productos" element={<Products />} />
+
         </Route>
 
         {/* FALLBACK */}

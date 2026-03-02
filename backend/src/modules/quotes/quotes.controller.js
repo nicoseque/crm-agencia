@@ -6,43 +6,9 @@ const { generateQuotePdf } = require('../../services/pdf.service');
  */
 async function create(req, res) {
   try {
-    console.log('BODY CREATE QUOTE:', req.body);
-
-    const {
-      seller_id,
-      client_dni,
-      client_first_name,
-      client_last_name,
-      interest_type,
-      product,
-      description,
-      total_amount,
-      currency,
-
-      // 🔽 NUEVOS CAMPOS
-      payment_method,
-      card_number,
-      card_expiry,
-      card_cvv,
-      save_card
-    } = req.body;
-
-    const quote = await service.create(req.user.id, {
-      seller_id,
-      client_dni,
-      client_first_name,
-      client_last_name,
-      interest_type,
-      product,
-      description,
-      total_amount,
-      currency,
-
-      payment_method,
-      card_number,
-      card_expiry,
-      card_cvv,
-      save_card
+    const quote = await service.create({
+      ...req.body,
+      seller_id: req.user.id // 🔥 ownership correcto
     });
 
     res.status(201).json(quote);
@@ -57,9 +23,17 @@ async function create(req, res) {
  */
 async function send(req, res) {
   try {
+    const quotes = await service.list(req.user);
+    const allowed = quotes.some(q => q.id === Number(req.params.id));
+
+    if (!allowed) {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
     await service.send(req.params.id, req.user.id);
     res.json({ message: 'Presupuesto enviado' });
   } catch (err) {
+    console.error('❌ send error:', err);
     res.status(400).json({ message: err.message });
   }
 }
@@ -69,9 +43,24 @@ async function send(req, res) {
  */
 async function list(req, res) {
   try {
+    const { search } = req.query;
+
+    if (search && search.trim() !== '') {
+      // 🔒 search también respeta visibilidad
+      const quotes = await service.list(req.user);
+      const filtered = quotes.filter(q =>
+        q.client_first_name?.toLowerCase().includes(search.toLowerCase()) ||
+        q.client_last_name?.toLowerCase().includes(search.toLowerCase()) ||
+        q.client_dni?.includes(search) ||
+        q.product?.toLowerCase().includes(search.toLowerCase())
+      );
+      return res.json(filtered);
+    }
+
     const quotes = await service.list(req.user);
     res.json(quotes);
   } catch (err) {
+    console.error('❌ CONTROLLER LIST ERROR:', err);
     res.status(500).json({ message: 'Error listando presupuestos' });
   }
 }
@@ -81,10 +70,15 @@ async function list(req, res) {
  */
 async function updateStatus(req, res) {
   try {
-    const { status } = req.body;
-    const quoteId = req.params.id;
+    const quotes = await service.list(req.user);
+    const allowed = quotes.some(q => q.id === Number(req.params.id));
 
-    await service.updateStatus(quoteId, status);
+    if (!allowed) {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
+    const { status } = req.body;
+    await service.updateStatus(req.params.id, status);
 
     res.json({ ok: true });
   } catch (err) {
@@ -94,12 +88,42 @@ async function updateStatus(req, res) {
 }
 
 /**
+ * APROBAR CON COBRO REAL
+ */
+async function approveWithPayment(req, res) {
+  try {
+    const quotes = await service.list(req.user);
+    const allowed = quotes.some(q => q.id === Number(req.params.id));
+
+    if (!allowed) {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
+    const { payment_method, final_amount } = req.body;
+
+    const quote = await service.approveWithPayment(req.params.id, {
+      payment_method,
+      final_amount
+    });
+
+    res.json(quote);
+  } catch (err) {
+    console.error('❌ approveWithPayment error:', err);
+    res.status(400).json({ message: err.message });
+  }
+}
+
+/**
  * GENERAR PDF
  */
 async function generateQuotePdfController(req, res) {
   try {
-    const quoteId = req.params.id;
-    const quote = await service.getById(quoteId);
+    const quotes = await service.list(req.user);
+    const quote = quotes.find(q => q.id === Number(req.params.id));
+
+    if (!quote) {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
 
     const pdfBuffer = await generateQuotePdf(quote);
 
@@ -109,17 +133,28 @@ async function generateQuotePdfController(req, res) {
       `inline; filename="presupuesto_${quote.id}.pdf"`
     );
 
-    return res.end(pdfBuffer);
+    res.end(pdfBuffer);
   } catch (err) {
     console.error('❌ Error PDF:', err);
     res.status(500).send('Error generando PDF');
   }
 }
 
+async function getDashboardKpis(req, res) {
+  try {
+    const kpis = await service.getDashboardKpisByUser(req.user);
+    res.json(kpis);
+  } catch (err) {
+    console.error('❌ KPIs error:', err);
+    res.status(500).json({ message: 'Error obteniendo KPIs' });
+  }
+}
 module.exports = {
   create,
   send,
   list,
   updateStatus,
+  approveWithPayment,
+  getDashboardKpis,
   generateQuotePdf: generateQuotePdfController
 };

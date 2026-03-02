@@ -1,8 +1,53 @@
 const service = require('./users.service');
 const { logAudit } = require('../../audit/audit.service');
+const pool = require('../../config/db');
 
+/**
+ * CREAR USUARIO
+ */
 async function createUser(req, res) {
   try {
+
+    // 🔎 Obtener rol real que se intenta crear
+    const roleResult = await pool.query(
+      'SELECT id, name FROM roles WHERE name = $1',
+      [req.body.role]
+    );
+
+    if (roleResult.rowCount === 0) {
+      return res.status(400).json({ message: 'Rol inválido' });
+    }
+
+    const roleToCreate = roleResult.rows[0].name;
+
+    // 🔒 REGLAS POR ROL
+
+    // VENDEDOR no puede crear usuarios
+    if (req.user.role === 'VENDEDOR') {
+      return res.status(403).json({
+        message: 'No tenés permisos para crear usuarios',
+      });
+    }
+
+    // SUPERVISOR solo puede crear VENDEDOR
+    if (
+      req.user.role === 'SUPERVISOR' &&
+      roleToCreate !== 'VENDEDOR'
+    ) {
+      return res.status(403).json({
+        message: 'Un supervisor solo puede crear vendedores',
+      });
+    }
+
+    const { supervisor_id } = req.body;
+
+    // 🔥 si se crea un VENDEDOR, exigir supervisor
+    if (roleToCreate === 'VENDEDOR' && !supervisor_id) {
+      return res.status(400).json({
+        message: 'Un usuario VENDEDOR debe tener un supervisor asignado',
+      });
+    }
+
     const user = await service.createUser(req.body);
 
     try {
@@ -22,22 +67,41 @@ async function createUser(req, res) {
   }
 }
 
+/**
+ * LISTAR USUARIOS
+ */
 async function listUsers(req, res) {
-  const users = await service.listUsers();
-  res.json(users);
+  console.log('🧪 USER EN USERS:', req.user);
+
+  try {
+    const users = await service.listUsers(req.user);
+    res.json(users);
+  } catch (error) {
+    console.error('LIST USERS ERROR:', error);
+    res.status(500).json({ message: 'Error listando usuarios' });
+  }
 }
 
 // ✅ SOLO VENDEDORES (legacy / pipeline)
 async function listVendors(req, res) {
-  const vendors = await service.listVendors();
-  res.json(vendors);
+  try {
+    if (req.user.role === 'VENDEDOR') {
+      const self = await service.getUserById(req.user.id);
+      return res.json(self ? [self] : []);
+    }
+
+    const vendors = await service.listVendors();
+    res.json(vendors);
+  } catch (error) {
+    console.error('LIST VENDORS ERROR:', error);
+    res.status(500).json({ message: 'Error listando vendedores' });
+  }
 }
 
 // 🆕 USUARIOS ASIGNABLES A PRESUPUESTOS
-// VENDEDOR + SUPERVISOR (ADMIN EXCLUIDO)
 async function listAssignableUsers(req, res) {
   try {
-    const users = await service.listAssignableUsers();
+    const users = await service.listAssignableUsers(req.user);
     res.json(users);
   } catch (error) {
     console.error('LIST ASSIGNABLE USERS ERROR:', error);
@@ -45,6 +109,9 @@ async function listAssignableUsers(req, res) {
   }
 }
 
+/**
+ * ACTIVAR USUARIO
+ */
 async function activateUser(req, res) {
   try {
     await service.setActive(req.params.id, true);
@@ -66,6 +133,9 @@ async function activateUser(req, res) {
   }
 }
 
+/**
+ * DESACTIVAR USUARIO
+ */
 async function deactivateUser(req, res) {
   try {
     await service.setActive(req.params.id, false);
@@ -91,7 +161,7 @@ module.exports = {
   createUser,
   listUsers,
   listVendors,
-  listAssignableUsers, // 👈 NUEVO
+  listAssignableUsers,
   activateUser,
   deactivateUser,
 };

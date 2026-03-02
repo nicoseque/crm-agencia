@@ -17,39 +17,64 @@ const noCache = (res) => {
 
 /**
  * 📊 GESTIÓN COMERCIAL – RESUMEN POR VENDEDOR
+ * ✔ Mes actual por defecto
+ * ✔ Mes histórico vía ?month=YYYY-MM
  */
 router.get('/vendors', auth(), async (req, res) => {
   try {
-    const result = await pool.query(`
+    const { month } = req.query; // '2026-01' | undefined
+
+    const result = await pool.query(
+      `
       WITH monthly_quotes AS (
         SELECT
           q.seller_id,
           COUNT(*)::int AS total_quotes,
-          COUNT(*) FILTER (WHERE q.status = 'APROBADO')::int AS approved_quotes,
+
+          COUNT(*) FILTER (WHERE q.status = 'APROBADO')::int
+            AS approved_quotes,
+
           COUNT(*) FILTER (
             WHERE q.status IN ('BORRADOR', 'ENVIADO')
               AND q.created_at <= NOW() - INTERVAL '3 days'
           )::int AS stale_quotes,
+
           COALESCE(
-            SUM(q.total_amount) FILTER (WHERE q.status = 'APROBADO'),
+            SUM(q.total_amount)
+              FILTER (WHERE q.status = 'APROBADO'),
             0
           )::numeric AS total_amount
+
         FROM quotes q
-        WHERE date_trunc('month', q.created_at) = date_trunc('month', CURRENT_DATE)
+        WHERE date_trunc(
+                'month',
+                q.created_at
+              ) = date_trunc(
+                'month',
+                COALESCE($1::date, CURRENT_DATE)
+              )
         GROUP BY q.seller_id
       )
+
       SELECT
         u.id AS seller_id,
         u.name AS seller_name,
+        u.monthly_target,              -- ✅ FIX CLAVE (NO EXISTÍA)
+
         m.total_quotes,
         m.approved_quotes,
+
         CASE
           WHEN m.total_quotes > 0 THEN
-            ROUND((m.approved_quotes::numeric / m.total_quotes) * 100)
+            ROUND(
+              (m.approved_quotes::numeric / m.total_quotes) * 100
+            )
           ELSE 0
         END AS effectiveness,
+
         m.stale_quotes,
         m.total_amount,
+
         CASE
           WHEN m.stale_quotes >= 4 THEN 'RED'
           WHEN (
@@ -61,10 +86,13 @@ router.get('/vendors', auth(), async (req, res) => {
           ) < 30 THEN 'YELLOW'
           ELSE 'GREEN'
         END AS status
+
       FROM monthly_quotes m
       JOIN users u ON u.id = m.seller_id
       ORDER BY status, m.total_amount DESC;
-    `);
+      `,
+      [month ? `${month}-01` : null]
+    );
 
     noCache(res);
     res.json(result.rows);
@@ -76,6 +104,7 @@ router.get('/vendors', auth(), async (req, res) => {
 
 /**
  * ⏰ PRESUPUESTOS VENCIDOS POR VENDEDOR (DETALLE)
+ * (NO depende del mes seleccionado)
  */
 router.get(
   '/vendors/:sellerId/stale-quotes',

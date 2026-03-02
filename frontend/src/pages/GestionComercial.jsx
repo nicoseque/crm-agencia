@@ -5,95 +5,171 @@ import {
 } from '../services/commercial.service';
 import StaleQuotesModal from '../components/commercial/StaleQuotesModal';
 
-/* 🎯 OBJETIVO FIJO */
-const MONTHLY_OBJECTIVE = 2_500_000;
-
-function getMonthInfo() {
-  const now = new Date();
-  const day = now.getDate();
+function getMonthInfo(date = new Date()) {
+  const day = date.getDate();
   const daysInMonth = new Date(
-    now.getFullYear(),
-    now.getMonth() + 1,
+    date.getFullYear(),
+    date.getMonth() + 1,
     0
   ).getDate();
 
   return {
     day,
-    daysInMonth,
-    progressPct: Math.round((day / daysInMonth) * 100)
+    daysInMonth
   };
+}
+
+function formatMonthLabel(value) {
+  const [y, m] = value.split('-');
+  return new Date(y, m - 1).toLocaleDateString('es-AR', {
+    month: 'long',
+    year: 'numeric'
+  });
+}
+
+function getLastMonths(count = 6) {
+  const months = [];
+  const now = new Date();
+
+  for (let i = 1; i <= count; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    );
+  }
+
+  return months;
 }
 
 function GestionComercial() {
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState('');
 
-  /* MODAL VENCIDOS */
+  const [topProduct, setTopProduct] = useState(null);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedSeller, setSelectedSeller] = useState(null);
   const [staleQuotes, setStaleQuotes] = useState([]);
 
-  const { day, daysInMonth, progressPct } = getMonthInfo();
+  const isCurrentMonth =
+    !selectedMonth ||
+    selectedMonth ===
+      `${new Date().getFullYear()}-${String(
+        new Date().getMonth() + 1
+      ).padStart(2, '0')}`;
+
+  const monthDate = selectedMonth
+    ? new Date(`${selectedMonth}-01`)
+    : new Date();
+
+  const { day, daysInMonth } = getMonthInfo(monthDate);
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       try {
-        const data = await getCommercialVendors();
-        setVendors(Array.isArray(data) ? data : []);
+        const res = await getCommercialVendors(
+          selectedMonth || undefined
+        );
+
+        const rows = Array.isArray(res)
+          ? res
+          : Array.isArray(res?.data)
+          ? res.data
+          : [];
+
+        setVendors(rows);
       } catch (e) {
         console.error('Error cargando gestión comercial', e);
+        setVendors([]);
       } finally {
         setLoading(false);
       }
     };
+
     load();
-  }, []);
+  }, [selectedMonth]);
+
+  useEffect(() => {
+    const query = selectedMonth ? `?month=${selectedMonth}` : '';
+
+    fetch(
+      `${import.meta.env.VITE_API_URL}/metrics/top-products${query}`,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      }
+    )
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setTopProduct(data[0]);
+        } else {
+          setTopProduct(null);
+        }
+      })
+      .catch(() => setTopProduct(null));
+  }, [selectedMonth]);
 
   const openStaleQuotes = async (vendor) => {
     try {
-      const data = await getStaleQuotesBySeller(vendor.seller_id);
+      const res = await getStaleQuotesBySeller(vendor.seller_id);
       setSelectedSeller(vendor);
-      setStaleQuotes(Array.isArray(data) ? data : []);
+      setStaleQuotes(Array.isArray(res) ? res : []);
       setModalOpen(true);
-    } catch (e) {
-      console.error('Error cargando presupuestos vencidos', e);
+    } catch {
+      /* noop */
     }
   };
 
   const enriched = useMemo(() => {
     return vendors.map(v => {
+      const totalPlans = Number(v.approved_quotes) || 0;
+      const target = Number(v.monthly_target) || 0;
+
       const progress =
-        MONTHLY_OBJECTIVE > 0
-          ? Math.round((v.total_amount / MONTHLY_OBJECTIVE) * 100)
+        target > 0
+          ? Math.round((totalPlans / target) * 100)
           : 0;
 
-      const projected =
-        day > 0
-          ? Math.round((v.total_amount / day) * daysInMonth)
-          : 0;
+      const projected = isCurrentMonth && day > 0
+        ? Math.round((totalPlans / day) * daysInMonth)
+        : totalPlans;
 
-      const remaining = Math.max(
-        MONTHLY_OBJECTIVE - v.total_amount,
-        0
-      );
+      const remaining = target > 0
+        ? Math.max(target - totalPlans, 0)
+        : 0;
 
       let state = '🟢';
       let rowColor = '#ecfdf5';
       let alertText = 'En ritmo';
 
-      if (projected < MONTHLY_OBJECTIVE * 0.9) {
-        state = '🔴';
-        rowColor = '#fef2f2';
-        alertText = 'No llega';
-      } else if (projected < MONTHLY_OBJECTIVE) {
-        state = '🟡';
-        rowColor = '#fffbeb';
-        alertText = 'Justo';
+      if (target > 0) {
+        if (projected < target * 0.9) {
+          state = '🔴';
+          rowColor = '#fef2f2';
+          alertText = 'No llega';
+        } else if (projected < target) {
+          state = '🟡';
+          rowColor = '#fffbeb';
+          alertText = 'Justo';
+        }
+      } else {
+        state = '⚪';
+        rowColor = '#f9fafb';
+        alertText = 'Sin objetivo';
+      }
+
+      if (!isCurrentMonth) {
+        alertText = 'Mes cerrado';
       }
 
       return {
         ...v,
-        progress,
+        totalPlans,
+        progress: isCurrentMonth ? progress : 100,
         projected,
         remaining,
         state,
@@ -101,7 +177,7 @@ function GestionComercial() {
         alertText
       };
     });
-  }, [vendors, day, daysInMonth]);
+  }, [vendors, day, daysInMonth, isCurrentMonth]);
 
   if (loading) return <p>Cargando gestión comercial…</p>;
 
@@ -115,27 +191,29 @@ function GestionComercial() {
           padding: 24
         }}
       >
-        {/* HEADER */}
-        <h1 style={{ fontSize: 22, fontWeight: 800 }}>
-          Gestión Comercial
-        </h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <h1 style={{ fontSize: 22, fontWeight: 800 }}>
+            Gestión Comercial
+          </h1>
 
-        <div
-          style={{
-            fontSize: 13,
-            color: '#6b7280',
-            marginBottom: 20
-          }}
-        >
-          Objetivo mensual por vendedor:{' '}
-          <strong>
-            $ {MONTHLY_OBJECTIVE.toLocaleString('es-AR')}
-          </strong>{' '}
-          · Avance del mes:{' '}
-          <strong>{progressPct}%</strong>
+          <select
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value)}
+            style={{
+              border: '1px solid #e5e7eb',
+              borderRadius: 8,
+              padding: '6px 10px'
+            }}
+          >
+            <option value="">Mes actual</option>
+            {getLastMonths(6).map(m => (
+              <option key={m} value={m}>
+                {formatMonthLabel(m)}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* TABLE */}
         <table
           style={{
             width: '100%',
@@ -183,96 +261,54 @@ function GestionComercial() {
                   borderBottom: '1px solid #e5e7eb'
                 }}
               >
-                {/* VENDEDOR */}
                 <td style={{ padding: '14px 8px', fontWeight: 700 }}>
                   <span style={{ marginRight: 6 }}>{v.state}</span>
                   {v.seller_name}
                 </td>
 
-                {/* PRODUCCIÓN */}
-                <td
-                  style={{
-                    padding: '14px 8px',
-                    textAlign: 'right',
-                    fontWeight: 600
-                  }}
-                >
-                  $ {Number(v.total_amount).toLocaleString('es-AR')}
+                <td style={{ padding: '14px 8px', textAlign: 'right' }}>
+                  {v.totalPlans} planes
                 </td>
 
-                {/* AVANCE */}
-                <td
-                  style={{
-                    padding: '14px 8px',
-                    textAlign: 'center',
-                    fontWeight: 800,
-                    color:
-                      v.progress >= progressPct
-                        ? '#16a34a'
-                        : '#dc2626'
-                  }}
-                >
+                <td style={{ textAlign: 'center', fontWeight: 800 }}>
                   {v.progress}%
                 </td>
 
-                {/* VENCIDOS */}
                 <td style={{ textAlign: 'center', fontWeight: 800 }}>
-                  {v.stale_quotes > 0 ? (
-                    <button
-                      onClick={() => openStaleQuotes(v)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#dc2626',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {v.stale_quotes}
-                    </button>
-                  ) : (
-                    <span style={{ color: '#9ca3af' }}>0</span>
-                  )}
+                  {v.stale_quotes || 0}
                 </td>
 
-                {/* FALTANTE */}
-                <td
-                  style={{
-                    padding: '14px 8px',
-                    textAlign: 'right'
-                  }}
-                >
-                  $ {Number(v.remaining).toLocaleString('es-AR')}
+                <td style={{ textAlign: 'right' }}>
+                  {v.remaining}
                 </td>
 
-                {/* PROYECCIÓN */}
-                <td
-                  style={{
-                    padding: '14px 8px',
-                    textAlign: 'right',
-                    fontWeight: 700,
-                    color:
-                      v.projected >= MONTHLY_OBJECTIVE
-                        ? '#16a34a'
-                        : '#dc2626'
-                  }}
-                >
-                  $ {Number(v.projected).toLocaleString('es-AR')}
+                <td style={{ textAlign: 'right', fontWeight: 700 }}>
+                  {v.projected}
                 </td>
 
-                {/* ESTADO */}
-                <td
-                  style={{
-                    padding: '14px 8px',
-                    textAlign: 'center',
-                    fontWeight: 700
-                  }}
-                >
+                <td style={{ textAlign: 'center', fontWeight: 700 }}>
                   {v.alertText}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+
+        {topProduct && (
+          <div
+            style={{
+              marginTop: 16,
+              paddingTop: 12,
+              borderTop: '1px solid #e5e7eb',
+              fontSize: 14,
+              fontWeight: 600
+            }}
+          >
+            🏆 Modelo más vendido del mes:{' '}
+            <strong>{topProduct.product}</strong>{' '}
+            ({topProduct.total_aprobados} aprobados)
+          </div>
+        )}
       </div>
 
       <StaleQuotesModal

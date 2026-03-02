@@ -35,5 +35,7 @@ app.use('/pipeline', require('./routes/pipeline.routes'));
 app.use('/pdf', require('./routes/pdf.routes'));
 app.use('/audit', require('./audit/audit.routes'));
 app.use('/metrics/commercial', require('./routes/commercial.routes'));
+app.use('/products', require('./routes/products.routes'));
+
 
 module.exports = app;

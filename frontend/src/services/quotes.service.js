@@ -2,19 +2,16 @@ import { apiFetch } from './api';
 
 /**
  * CREAR PRESUPUESTO
- * ✅ AHORA RESUELVE LA PROMESA
  */
 export const createQuote = async (data) => {
-  const response = await apiFetch('/quotes', {
+  return await apiFetch('/quotes', {
     method: 'POST',
     body: JSON.stringify(data)
   });
-
-  return response;
 };
 
 /**
- * Cambiar estado simple
+ * CAMBIO DE ESTADO SIMPLE
  */
 export const updateQuoteStatus = async (id, status) => {
   return await apiFetch(`/quotes/${id}/status`, {
@@ -24,43 +21,67 @@ export const updateQuoteStatus = async (id, status) => {
 };
 
 /**
- * Aprobar presupuesto (flujo de negocio)
+ * ✅ APROBACIÓN CON COBRO REAL
  */
-export const approveQuote = async (id, data) => {
-  if (!data.amount || data.amount <= 0) {
-    throw new Error('El monto del anticipo es obligatorio');
+export const approveQuoteWithPayment = async (id, data) => {
+  const { payment_method, final_amount } = data;
+
+  if (!payment_method) {
+    throw new Error('La forma de pago es obligatoria');
+  }
+
+  if (!final_amount || Number(final_amount) <= 0) {
+    throw new Error('El monto final es obligatorio');
   }
 
   return await apiFetch(`/quotes/${id}/approve`, {
     method: 'POST',
     body: JSON.stringify({
-      amount: Number(data.amount),
-      payment_method: data.payment_method,
-      notes: data.notes || null
+      payment_method,
+      final_amount: Number(final_amount)
     })
   });
 };
 
 /**
- * Historial del presupuesto
+ * HISTORIAL
  */
 export const getQuoteHistory = async (id) => {
   return await apiFetch(`/quotes/${id}/history`);
 };
 
 /**
- * Anticipo
+ * 📄 PDF — IMPLEMENTACIÓN CORRECTA
+ * (NO usar apiFetch)
  */
-export const getAdvancePayment = async (quoteId) => {
-  return await apiFetch(`/quotes/${quoteId}/advance-payment`);
+export const openQuotePdf = async (id) => {
+  const token = localStorage.getItem('token');
+
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/quotes/${id}/pdf`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error('Error generando PDF');
+  }
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  window.open(url, '_blank');
+
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 };
 
 /**
- * GENERAR PDF
- * (no se usa con await en el modal)
+ * LISTAR PRESUPUESTOS
  */
-export const generateQuotePdf = (id) => {
-  return apiFetch(`/quotes/${id}/pdf`, {
-    method: 'GET'
-  });
+export const getAllQuotes = async (search = '') => {
+  const query = search ? `?search=${encodeURIComponent(search)}` : '';
+  return await apiFetch(`/quotes${query}`);
 };

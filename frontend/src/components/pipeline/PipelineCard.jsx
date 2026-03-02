@@ -1,7 +1,7 @@
 function PipelineCard({
   name,
+  product,
   sellerName,
-  amount,
   createdAt,
   onClick,
   id,
@@ -42,10 +42,12 @@ function PipelineCard({
 
   const handleDragStart = (e) => {
     if (isLocked) return;
-    e.dataTransfer.setData('leadId', id);
+
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(id));
+    e.dataTransfer.setData('leadId', String(id));
   };
 
-  // ---------- STYLES DINÁMICOS ----------
   const cardStyle = {
     background: isExpired && !isLocked ? '#fff5f5' : '#ffffff',
     border: isExpired && !isLocked
@@ -55,7 +57,7 @@ function PipelineCard({
     borderRadius: 10,
     padding: 12,
     marginBottom: 12,
-    cursor: isLocked ? 'default' : 'pointer',
+    cursor: isLocked ? 'default' : 'grab',
     opacity: isLocked ? 0.75 : 1,
     boxShadow: '0 1px 3px rgba(0,0,0,.08)'
   };
@@ -69,25 +71,18 @@ function PipelineCard({
     >
       {/* CLIENTE */}
       <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
-        👤 {name || 'Sin nombre'}
+        👤 <strong>Cliente:</strong> {name || 'Sin nombre'}
       </div>
 
-      {/* MONTO */}
-      <div
-        style={{
-          marginTop: 6,
-          fontSize: 16,
-          fontWeight: 700,
-          color: '#2563eb'
-        }}
-      >
-        💰 $ {Number(amount || 0).toLocaleString('es-AR')}
+      {/* PRODUCTO */}
+      <div style={{ marginTop: 4, fontSize: 13, color: '#374151' }}>
+        🚗 <strong>Producto:</strong> {product || '—'}
       </div>
 
       {/* FOOTER */}
       <div
         style={{
-          marginTop: 6,
+          marginTop: 8,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -95,12 +90,8 @@ function PipelineCard({
           color: '#6b7280'
         }}
       >
-        <div>
-          🧑‍💼 {sellerName || 'Sin vendedor'}
-        </div>
-        <div>
-          ⏱️ {dateText}
-        </div>
+        <div>🧑‍💼 {sellerName || 'Sin vendedor'}</div>
+        <div>⏱️ {dateText}</div>
       </div>
 
       {/* VENCIDO */}

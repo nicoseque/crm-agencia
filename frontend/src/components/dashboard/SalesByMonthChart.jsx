@@ -3,13 +3,31 @@ import { apiFetch } from '../../services/api';
 
 function SalesByMonthChart({ refreshToken }) {
   const [data, setData] = useState([]);
+  const [error, setError] = useState(false);
 
   const load = async () => {
     try {
       const res = await apiFetch('/metrics/sales-by-month');
-      setData(Array.isArray(res) ? res : []);
+
+      if (!Array.isArray(res)) {
+        console.error('Respuesta inválida:', res);
+        setData([]);
+        return;
+      }
+
+      // filtramos SOLO filas válidas
+      const safe = res.filter(
+        r =>
+          r &&
+          typeof r.month_label === 'string' &&
+          r.month_label.includes('-') &&
+          !isNaN(Number(r.total))
+      );
+
+      setData(safe);
     } catch (e) {
-      console.error('Error cargando ventas por mes', e);
+      console.error('Error cargando planes por mes', e);
+      setError(true);
       setData([]);
     }
   };
@@ -18,13 +36,14 @@ function SalesByMonthChart({ refreshToken }) {
     load();
   }, [refreshToken]);
 
+  // ⛔ si hay error, no renderizamos nada
+  if (error) return null;
   if (!data.length) return null;
 
-  // ✅ CAMBIO ULTRA SEGURO: solo invertimos para render
   const renderData = [...data].reverse();
 
-  const amounts = data.map(d => Number(d.total) || 0);
-  const maxAmount = Math.max(...amounts, 1);
+  const counts = renderData.map(d => Number(d.total) || 0);
+  const maxCount = Math.max(...counts, 1);
 
   return (
     <div
@@ -38,21 +57,27 @@ function SalesByMonthChart({ refreshToken }) {
       }}
     >
       <h3 style={{ marginBottom: 20, fontSize: 16, fontWeight: 700 }}>
-        Ventas aprobadas por mes
+        Planes aprobados por mes
       </h3>
 
       {renderData.map(row => {
-        const total = Number(row.total) || 0;
-        const percent = (total / maxAmount) * 100;
+        let label = row.month_label;
 
-        const [year, month] = row.month.split('-');
-        const label = new Intl.DateTimeFormat('es-AR', {
-          month: 'long',
-          year: 'numeric'
-        }).format(new Date(Number(year), Number(month) - 1, 1));
+        try {
+          const [year, month] = row.month_label.split('-');
+          label = new Intl.DateTimeFormat('es-AR', {
+            month: 'long',
+            year: 'numeric'
+          }).format(new Date(Number(year), Number(month) - 1, 1));
+        } catch {
+          return null;
+        }
+
+        const total = Number(row.total) || 0;
+        const percent = (total / maxCount) * 100;
 
         return (
-          <div key={row.month} style={{ marginBottom: 14 }}>
+          <div key={row.month_label} style={{ marginBottom: 14 }}>
             <div
               style={{
                 fontSize: 13,
@@ -63,7 +88,7 @@ function SalesByMonthChart({ refreshToken }) {
               }}
             >
               <span>{label}</span>
-              <strong>$ {total.toLocaleString('es-AR')}</strong>
+              <strong>{total} planes</strong>
             </div>
 
             <div

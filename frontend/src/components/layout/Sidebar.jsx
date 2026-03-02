@@ -77,6 +77,11 @@ function Sidebar() {
           Clientes
         </NavLink>
 
+        <NavLink to="/quotes" style={linkStyle}>
+  Presupuestos
+</NavLink>
+
+
         <NavLink to="/ranking" style={linkStyle}>
           Ranking de Vendedores
         </NavLink>
@@ -91,6 +96,10 @@ function Sidebar() {
             <NavLink to="/gestion-comercial" style={linkStyle}>
               Gestión Comercial
             </NavLink>
+            <NavLink to="/productos" style={linkStyle}>
+               Productos
+            </NavLink>
+
 
             <NavLink to="/users" style={linkStyle}>
               Usuarios

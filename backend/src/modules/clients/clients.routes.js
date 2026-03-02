@@ -3,19 +3,46 @@ const router = express.Router();
 const controller = require('./clients.controller');
 const auth = require('../../middlewares/auth.middleware');
 
-// Crear cliente → ADMIN / SUPERVISOR / VENDEDOR
-router.post('/', auth([1, 2, 3]), controller.createClient);
+// Crear cliente → todos
+router.post(
+  '/',
+  auth(),
+  controller.createClient
+);
 
-// Listar clientes → todos
-router.get('/', auth([1, 2, 3]), controller.getClients);
+// Listar clientes → todos (filtrado en service)
+router.get(
+  '/',
+  auth(),
+  controller.getClients
+);
 
-// 🆕 Obtener cliente por DNI → todos
-router.get('/by-dni/:dni', auth([1, 2, 3]), controller.getClientByDni);
+// Obtener cliente por DNI → todos
+router.get(
+  '/by-dni/:dni',
+  auth(),
+  controller.getClientByDni
+);
 
 // Obtener cliente por ID → todos
-router.get('/:id', auth([1, 2, 3]), controller.getClientById);
+router.get(
+  '/:id',
+  auth(),
+  controller.getClientById
+);
 
-router.put('/:id', auth([1, 2, 3]), controller.updateClient);
-router.patch('/:id/deactivate', auth([1, 2, 3]), controller.deactivateClient);
+// Actualizar cliente → todos
+router.put(
+  '/:id',
+  auth(),
+  controller.updateClient
+);
+
+// Desactivar cliente → todos
+router.patch(
+  '/:id/deactivate',
+  auth(),
+  controller.deactivateClient
+);
 
 module.exports = router;

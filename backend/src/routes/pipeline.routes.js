@@ -5,10 +5,10 @@ const auth = require('../middlewares/auth.middleware');
 
 router.get(
   '/',
-  auth(['ADMIN', 'SUPERVISOR', 'VENDEDOR']),
+  auth(), // 🔥 auth SIN parámetros
   async (req, res) => {
     try {
-      const { id: userId, role } = req.user;
+      const { id: userId, role_id } = req.user;
 
       let query = `
         SELECT
@@ -17,6 +17,7 @@ router.get(
           q.total_amount,
           q.created_at,
           q.resolved_at,
+          q.product,
           q.client_first_name,
           q.client_last_name,
           q.company_name,
@@ -28,22 +29,39 @@ router.get(
       `;
 
       const params = [];
+// 🔐 FILTRO POR ROL (CORRECTO)
+if (role_id === 3) {
+  // VENDEDOR → solo los suyos
+  query += ' WHERE q.seller_id = $1';
+  params.push(userId);
+}
 
-      if (role === 'VENDEDOR') {
-        query += ' WHERE q.seller_id = $1';
-        params.push(userId);
-      }
+if (role_id === 2) {
+  // SUPERVISOR → suyos + equipo
+  query += `
+    WHERE
+      q.seller_id = $1
+      OR q.seller_id IN (
+        SELECT id FROM users WHERE supervisor_id = $1
+      )
+  `;
+  params.push(userId);
+}
+
+// role_id === 1 (ADMIN) → ve todo
+
+      // ADMIN → sin WHERE (ve todo)
 
       query += ' ORDER BY q.created_at ASC';
 
       const result = await pool.query(query, params);
 
-const columns = {
-  BORRADOR: { id: 1, name: 'Nuevos Leads', status: 'BORRADOR', leads: [] },
-  ENVIADO: { id: 2, name: 'Presupuestos Enviados', status: 'ENVIADO', leads: [] },
-  APROBADO: { id: 3, name: 'Aprobados', status: 'APROBADO', leads: [] },
-  CANCELADO: { id: 4, name: 'Cancelados', status: 'CANCELADO', leads: [] }
-};
+      const columns = {
+        BORRADOR: { id: 1, name: 'Nuevos Leads', status: 'BORRADOR', leads: [] },
+        ENVIADO: { id: 2, name: 'Presupuestos Enviados', status: 'ENVIADO', leads: [] },
+        APROBADO: { id: 3, name: 'Aprobados', status: 'APROBADO', leads: [] },
+        CANCELADO: { id: 4, name: 'Cancelados', status: 'CANCELADO', leads: [] }
+      };
 
       let company = null;
 
@@ -58,18 +76,17 @@ const columns = {
         const column = columns[row.status];
         if (!column) return;
 
-        column.leads.push({
-          id: row.id,
-          status: row.status,
-          created_at: row.created_at,
-          resolved_at: row.resolved_at,
-          client_name: row.client_first_name
-            ? `${row.client_first_name} ${row.client_last_name || ''}`.trim()
-            : 'Sin nombre',
-          seller_name: row.seller_name || 'Sin vendedor',
-          amount: row.total_amount
-        });
-      });
+column.leads.push({
+  id: row.id,
+  status: row.status,
+  created_at: row.created_at,
+  resolved_at: row.resolved_at,
+  client_name: row.client_first_name
+    ? `${row.client_first_name} ${row.client_last_name || ''}`.trim()
+    : 'Sin nombre',
+  product: row.product || null,
+  seller_name: row.seller_name || 'Sin vendedor'
+});      });
 
       res.set({
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',

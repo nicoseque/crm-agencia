@@ -7,13 +7,23 @@ function PipelineColumn({ title, leads = [], onSelect, status, onDropLead }) {
     return new Date(a.created_at) - new Date(b.created_at);
   });
 
-  const handleDragOver = (e) => e.preventDefault();
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
 
   const handleDrop = (e) => {
     e.preventDefault();
-    const leadId = e.dataTransfer.getData('leadId');
+
+    // 🔑 SIEMPRE text/plain
+    const leadId = e.dataTransfer.getData('text/plain');
     if (!leadId) return;
-    onDropLead(Number(leadId), status);
+
+    const lead = leads.find(l => String(l.id) === String(leadId));
+    if (!lead) return;
+
+    // 👉 delegamos la lógica al Pipeline
+    onDropLead(lead, status);
   };
 
   return (
@@ -22,7 +32,7 @@ function PipelineColumn({ title, leads = [], onSelect, status, onDropLead }) {
       onDrop={handleDrop}
       style={{
         width: 300,
-        maxHeight: '65vh',          // 👈 límite claro
+        maxHeight: '65vh',
         background: '#f9fafb',
         borderRadius: 14,
         padding: 14,
@@ -59,26 +69,27 @@ function PipelineColumn({ title, leads = [], onSelect, status, onDropLead }) {
       </div>
 
       {/* CARDS */}
-      <div style={{ overflowY: 'auto', paddingRight: 4 }}>
-        {sortedLeads.map(lead => (
-
-          
-<PipelineCard
-  key={lead.id}
-  id={lead.id}
-  name={lead.client_name}
-  sellerName={lead.seller_name}   // 👈 CLAVE
-  amount={lead.amount}
-  createdAt={lead.created_at}
-  status={status}
-  onClick={() => onSelect(lead)}
-/>
-
-        ))}
-      </div>
-    </div>
+<div style={{ overflowY: 'auto', paddingRight: 4 }}>
+  {sortedLeads.map((lead) => (
+    <PipelineCard
+      key={lead.id}
+      id={lead.id}
+      name={lead.client_name}
+      product={
+        lead.product ||
+        lead.interest_type ||
+        lead.description ||
+        '—'
+      }
+      sellerName={lead.seller_name}
+      createdAt={lead.created_at}
+      status={status}
+      onClick={() => onSelect(lead)}
+    />
+  ))}
+</div>    
+</div>
   );
 }
-
 
 export default PipelineColumn;

@@ -1,9 +1,20 @@
 const pool = require('../../config/db');
 
 /**
+ * OBTENER PRESUPUESTO POR ID
+ */
+async function getById(id) {
+  const { rows } = await pool.query(
+    `SELECT * FROM quotes WHERE id = $1`,
+    [id]
+  );
+  return rows[0] || null;
+}
+
+/**
  * CREAR PRESUPUESTO
  */
-async function create(userId, data) {
+async function create(data) {
   const {
     seller_id,
     client_dni,
@@ -15,7 +26,23 @@ async function create(userId, data) {
     total_amount,
     currency,
 
-    // 🔽 NUEVOS
+    installments_qty,
+    installment_final,
+    installment_pure,
+    retiro_from_installment,
+    mechanisms,
+    retiro_costs,
+    adjudication_programmed,
+
+    has_used_vehicle,
+    vehicle_brand,
+    vehicle_model,
+    vehicle_version,
+    vehicle_year,
+    vehicle_price,
+
+    benefits,
+
     payment_method,
     card_number,
     card_expiry,
@@ -35,18 +62,34 @@ async function create(userId, data) {
       description,
       total_amount,
       currency,
+      installments_qty,
+      installment_final,
+      installment_pure,
+      retiro_from_installment,
+      mechanisms,
+      retiro_costs,
+      adjudication_programmed,
+      has_used_vehicle,
+      vehicle_brand,
+      vehicle_model,
+      vehicle_version,
+      vehicle_year,
+      vehicle_price,
+      benefits,
       payment_method,
       card_number,
       card_expiry,
       card_cvv,
       save_card,
-      status,
-      created_at
+      status
     )
     VALUES (
       $1,$2,$3,$4,$5,$6,$7,$8,$9,
-      $10,$11,$12,$13,$14,
-      'BORRADOR', NOW()
+      $10,$11,$12,$13,$14,$15,$16,
+      $17,$18,$19,$20,$21,$22,
+      $23,
+      $24,$25,$26,$27,$28,
+      'BORRADOR'
     )
     RETURNING *
     `,
@@ -59,12 +102,30 @@ async function create(userId, data) {
       product,
       description,
       total_amount,
-      currency,
-      payment_method || null,
-      card_number || null,
-      card_expiry || null,
-      card_cvv || null,
-      save_card || false
+      currency || 'ARS',
+
+      installments_qty,
+      installment_final,
+      installment_pure,
+      retiro_from_installment,
+      mechanisms,
+      retiro_costs,
+      adjudication_programmed,
+
+      has_used_vehicle,
+      vehicle_brand,
+      vehicle_model,
+      vehicle_version,
+      vehicle_year,
+      vehicle_price,
+
+      benefits,
+
+      payment_method,
+      card_number,
+      card_expiry,
+      card_cvv,
+      save_card
     ]
   );
 
@@ -72,58 +133,224 @@ async function create(userId, data) {
 }
 
 /**
- * LISTAR
+ * ENVIAR PRESUPUESTO
+ */
+async function send(id, userId) {
+  const { rows } = await pool.query(
+    `
+    UPDATE quotes
+    SET
+      status = 'ENVIADO',
+      supervisor_id = $2,
+      sent_at = NOW()
+    WHERE id = $1
+    RETURNING *
+    `,
+    [id, userId]
+  );
+
+  return rows[0];
+}
+
+/**
+ * LISTAR PRESUPUESTOS SEGÚN ROL
  */
 async function list(user) {
-  const { rows } = await pool.query(`SELECT * FROM quotes`);
+  if (!user) throw new Error('Usuario requerido');
+
+  // ADMIN → todos
+  if (user.role_id === 1) {
+    const { rows } = await pool.query(
+      `SELECT * FROM quotes ORDER BY created_at DESC`
+    );
+    return rows;
+  }
+
+  // SUPERVISOR → suyos + equipo
+  if (user.role_id === 2) {
+    const { rows } = await pool.query(
+      `
+      SELECT *
+      FROM quotes
+      WHERE seller_id = $1
+         OR seller_id IN (
+           SELECT id FROM users WHERE supervisor_id = $1
+         )
+      ORDER BY created_at DESC
+      `,
+      [user.id]
+    );
+    return rows;
+  }
+
+  // VENDEDOR → solo los suyos
+  const { rows } = await pool.query(
+    `
+    SELECT *
+    FROM quotes
+    WHERE seller_id = $1
+    ORDER BY created_at DESC
+    `,
+    [user.id]
+  );
+
   return rows;
 }
 
 /**
- * ACTUALIZAR STATUS
+ * BUSCAR PRESUPUESTOS (RESPETA VISIBILIDAD)
  */
-async function updateStatus(quoteId, status) {
-  await pool.query(
-    `
-    UPDATE quotes
-    SET status = $1::varchar
-    WHERE id = $2::int
-    `,
-    [status, quoteId]
-  );
-}
+async function searchAll(search, user) {
+  const base = `
+    SELECT *
+    FROM quotes
+    WHERE (
+      client_first_name ILIKE $1 OR
+      client_last_name ILIKE $1 OR
+      client_dni ILIKE $1 OR
+      product ILIKE $1
+    )
+  `;
 
-/**
- * ENVIAR
- */
-async function send(id, userId) {
-  await pool.query(
-    `
-    UPDATE quotes
-    SET status = 'ENVIADO',
-        supervisor_id = $2,
-        sent_at = NOW()
-    WHERE id = $1
-    `,
-    [id, userId]
-  );
-}
+  // ADMIN
+  if (user.role_id === 1) {
+    const { rows } = await pool.query(
+      `${base} ORDER BY created_at DESC`,
+      [`%${search}%`]
+    );
+    return rows;
+  }
 
-/**
- * OBTENER POR ID
- */
-async function getById(id) {
+  // SUPERVISOR
+  if (user.role_id === 2) {
+    const { rows } = await pool.query(
+      `
+      ${base}
+      AND (
+        seller_id = $2
+        OR seller_id IN (
+          SELECT id FROM users WHERE supervisor_id = $2
+        )
+      )
+      ORDER BY created_at DESC
+      `,
+      [`%${search}%`, user.id]
+    );
+    return rows;
+  }
+
+  // VENDEDOR
   const { rows } = await pool.query(
-    `SELECT * FROM quotes WHERE id = $1`,
-    [id]
+    `
+    ${base}
+    AND seller_id = $2
+    ORDER BY created_at DESC
+    `,
+    [`%${search}%`, user.id]
   );
+
+  return rows;
+}
+
+/**
+ * ACTUALIZAR ESTADO
+ */
+async function updateStatus(id, status) {
+  const { rows } = await pool.query(
+    `
+    UPDATE quotes
+    SET status = $2
+    WHERE id = $1
+    RETURNING *
+    `,
+    [id, status]
+  );
+
+  return rows[0];
+}
+
+/**
+ * APROBAR PRESUPUESTO CON COBRO REAL
+ */
+async function approveWithPayment(id, { payment_method, final_amount }) {
+  const { rows } = await pool.query(
+    `
+    UPDATE quotes
+    SET
+      status = 'APROBADO',
+      payment_method = $2,
+      total_amount = $3,
+      resolved_at = CURRENT_DATE
+    WHERE id = $1
+    RETURNING *
+    `,
+    [id, payment_method, final_amount]
+  );
+
+  return rows[0];
+}
+
+/**
+ * KPIs DASHBOARD POR USUARIO
+ */
+async function getDashboardKpisByUser(user) {
+  // ADMIN
+  if (user.role_id === 1) {
+    const { rows } = await pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status NOT IN ('APROBADO','CANCELADO')) AS leads_activos,
+        COUNT(*) FILTER (WHERE status = 'ENVIADO') AS enviados,
+        COUNT(*) FILTER (WHERE status = 'APROBADO') AS aprobados,
+        COUNT(*) FILTER (WHERE status = 'CANCELADO') AS cancelados
+      FROM quotes
+    `);
+    return rows[0];
+  }
+
+  // SUPERVISOR
+  if (user.role_id === 2) {
+    const { rows } = await pool.query(
+      `
+      SELECT
+        COUNT(*) FILTER (WHERE status NOT IN ('APROBADO','CANCELADO')) AS leads_activos,
+        COUNT(*) FILTER (WHERE status = 'ENVIADO') AS enviados,
+        COUNT(*) FILTER (WHERE status = 'APROBADO') AS aprobados,
+        COUNT(*) FILTER (WHERE status = 'CANCELADO') AS cancelados
+      FROM quotes
+      WHERE seller_id = $1
+         OR seller_id IN (
+           SELECT id FROM users WHERE supervisor_id = $1
+         )
+      `,
+      [user.id]
+    );
+    return rows[0];
+  }
+
+  // VENDEDOR
+  const { rows } = await pool.query(
+    `
+    SELECT
+      COUNT(*) FILTER (WHERE status NOT IN ('APROBADO','CANCELADO')) AS leads_activos,
+      COUNT(*) FILTER (WHERE status = 'ENVIADO') AS enviados,
+      COUNT(*) FILTER (WHERE status = 'APROBADO') AS aprobados,
+      COUNT(*) FILTER (WHERE status = 'CANCELADO') AS cancelados
+    FROM quotes
+    WHERE seller_id = $1
+    `,
+    [user.id]
+  );
+
   return rows[0];
 }
 
 module.exports = {
   create,
-  list,
-  updateStatus,
+  getById,
   send,
-  getById
+  list,
+  searchAll,
+  updateStatus,
+  approveWithPayment,
+  getDashboardKpisByUser
 };

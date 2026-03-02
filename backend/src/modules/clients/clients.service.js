@@ -1,8 +1,8 @@
 const pool = require('../../config/db');
 
-// Campos permitidos para update (clave para roles futuros)
+// Campos permitidos para update
 const UPDATABLE_FIELDS = [
-  'dni',           // 👈 agregar esto
+  'dni',
   'name',
   'last_name',
   'phone',
@@ -12,26 +12,39 @@ const UPDATABLE_FIELDS = [
   'birth_date'
 ];
 
-
 /**
  * Crear cliente
  */
-async function create({
-  dni,
-  name,
-  last_name,
-  email,
-  phone,
-  address,
-  notes,
-  birth_date
-}) {
+async function create(
+  {
+    dni,
+    name,
+    last_name,
+    email,
+    phone,
+    address,
+    notes,
+    birth_date
+  },
+  userId
+) {
   const result = await pool.query(
     `
     INSERT INTO clients
-      (dni, name, last_name, phone, email, address, notes, birth_date, active)
+      (
+        dni,
+        name,
+        last_name,
+        phone,
+        email,
+        address,
+        notes,
+        birth_date,
+        active,
+        created_by
+      )
     VALUES
-      ($1, $2, $3, $4, $5, $6, $7, $8, true)
+      ($1, $2, $3, $4, $5, $6, $7, $8, true, $9)
     RETURNING *
     `,
     [
@@ -42,7 +55,8 @@ async function create({
       email || null,
       address || null,
       notes || null,
-      birth_date || null
+      birth_date || null,
+      userId
     ]
   );
 
@@ -50,17 +64,53 @@ async function create({
 }
 
 /**
- * Listar clientes (solo activos)
+ * Listar clientes SEGÚN ROL
  */
-async function findAll() {
+async function findAllByUser(user) {
+  // ADMIN → todos
+  if (user.role === 'ADMIN') {
+    const result = await pool.query(
+      `
+      SELECT *
+      FROM clients
+      WHERE active IS NOT FALSE
+      ORDER BY last_name ASC, name ASC
+      `
+    );
+    return result.rows;
+  }
+
+  // SUPERVISOR → los suyos + equipo
+  if (user.role === 'SUPERVISOR') {
+    const result = await pool.query(
+      `
+      SELECT c.*
+      FROM clients c
+      JOIN users u ON u.id = c.created_by
+      WHERE c.active IS NOT FALSE
+        AND (
+          c.created_by = $1
+          OR u.supervisor_id = $1
+        )
+      ORDER BY c.last_name ASC, c.name ASC
+      `,
+      [user.id]
+    );
+    return result.rows;
+  }
+
+  // VENDEDOR → solo los suyos
   const result = await pool.query(
     `
     SELECT *
     FROM clients
     WHERE active IS NOT FALSE
+      AND created_by = $1
     ORDER BY last_name ASC, name ASC
-    `
+    `,
+    [user.id]
   );
+
   return result.rows;
 }
 
@@ -76,7 +126,7 @@ async function findById(id) {
 }
 
 /**
- * Buscar cliente por DNI (autocompletar presupuesto)
+ * Buscar cliente por DNI
  */
 async function findByDni(dni) {
   const result = await pool.query(
@@ -94,7 +144,7 @@ async function findByDni(dni) {
 }
 
 /**
- * Actualizar cliente (solo campos permitidos)
+ * Actualizar cliente
  */
 async function update(id, data) {
   const fields = [];
@@ -145,7 +195,7 @@ async function deactivate(id) {
 
 module.exports = {
   create,
-  findAll,
+  findAllByUser,
   findById,
   findByDni,
   update,

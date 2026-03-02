@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../services/api';
 
-function capitalize(text) {
+function capitalize(text = '') {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
@@ -22,7 +22,11 @@ function SalesHistory() {
   const months = useMemo(() => {
     return data
       .filter(row => {
-        const [y, m] = row.month.split('-').map(Number);
+        if (!row?.month_label) return false;
+
+        const [y, m] = row.month_label.split('-').map(Number);
+        if (!y || !m) return false;
+
         return new Date(y, m - 1, 1) <= now;
       })
       .slice(-range);
@@ -30,12 +34,14 @@ function SalesHistory() {
 
   const totals = months.map(m => Number(m.total) || 0);
   const maxAmount = Math.max(...totals, 1);
+
   const avg = totals.length
     ? Math.round(totals.reduce((a, b) => a + b, 0) / totals.length)
     : 0;
 
   const bestMonth = months.reduce(
-    (best, cur) => (Number(cur.total) > Number(best.total) ? cur : best),
+    (best, cur) =>
+      Number(cur.total) > Number(best.total) ? cur : best,
     months[0] || {}
   );
 
@@ -73,7 +79,7 @@ function SalesHistory() {
             Performance comercial
           </div>
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>
-            Histórico de ventas
+            Histórico de Planes Aprobados
           </h1>
         </div>
 
@@ -130,25 +136,26 @@ function SalesHistory() {
             color: '#111827'
           }}
         >
-          $ {avg.toLocaleString('es-AR')}
+          {avg} Planes
         </div>
       </div>
 
       {/* MONTH CARDS */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {months.map(row => {
-          const total = Number(row.total);
+          if (!row?.month_label) return null;
+
+          const total = Number(row.total) || 0;
           const percent = (total / maxAmount) * 100;
 
-          // 🔧 FIX REAL: buscar mes calendario anterior
-          const [y, m] = row.month.split('-').map(Number);
+          const [y, m] = row.month_label.split('-').map(Number);
 
-const prevYear = m === 1 ? y - 1 : y;
-const prevMonthNum = m === 1 ? 12 : m - 1;
+          const prevYear = m === 1 ? y - 1 : y;
+          const prevMonthNum = m === 1 ? 12 : m - 1;
+          const prevKey = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}`;
 
-const prevKey = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}`;
-const prevMonth =
-  months.find(p => p.month === prevKey) || null;
+          const prevMonth =
+            months.find(p => p.month_label === prevKey) || null;
 
           const diff =
             prevMonth && Number(prevMonth.total) > 0
@@ -166,12 +173,12 @@ const prevMonth =
             }).format(new Date(y, m - 1, 1))
           );
 
-          const isBest = row.month === bestMonth.month;
+          const isBest = row.month_label === bestMonth.month_label;
           const aboveAvg = total >= avg;
 
           return (
             <div
-              key={row.month}
+              key={row.month_label}
               style={{
                 padding: 20,
                 borderRadius: 14,
@@ -199,7 +206,7 @@ const prevMonth =
                     color: '#16a34a'
                   }}
                 >
-                  $ {total.toLocaleString('es-AR')}
+                  {total} Planes
                 </div>
               </div>
 

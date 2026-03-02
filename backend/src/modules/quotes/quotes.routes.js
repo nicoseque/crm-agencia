@@ -17,24 +17,52 @@ router.get('/test', (req, res) => {
   res.send('QUOTES TEST OK');
 });
 
-// TEST CREATE (opcional)
-router.post('/test-create', (req, res) => {
-  res.json({ ok: true });
-});
+// CREAR PRESUPUESTO → todos
+router.post(
+  '/',
+  auth(),
+  quotesController.create
+);
 
-// CREAR PRESUPUESTO
-router.post('/', auth(), quotesController.create);
+// LISTAR PRESUPUESTOS → todos (filtrado en service)
+router.get(
+  '/',
+  auth(),
+  quotesController.list
+);
 
-// LISTAR PRESUPUESTOS
-router.get('/', auth(), quotesController.list);
+// CAMBIAR ESTADO (drag & drop) → todos
+router.patch(
+  '/:id/status',
+  auth(),
+  quotesController.updateStatus
+);
 
-// ✅ ACTUALIZAR STATUS (DRAG & DROP)
-router.patch('/:id/status', auth(), quotesController.updateStatus);
+// APROBAR PRESUPUESTO → todos
+router.post(
+  '/:id/approve',
+  auth(),
+  quotesController.approveWithPayment
+);
 
-// GENERAR PDF
-router.get('/:id/pdf', quotesController.generateQuotePdf);
+// GENERAR PDF → todos
+router.get(
+  '/:id/pdf',
+  auth(),
+  quotesController.generateQuotePdf
+);
 
-// ENVIAR PRESUPUESTO
-router.post('/:id/send', auth(), quotesController.send);
+// ENVIAR PRESUPUESTO → todos
+router.post(
+  '/:id/send',
+  auth(),
+  quotesController.send
+);
+
+router.get(
+  '/kpis',
+  auth(),
+  quotesController.getDashboardKpis
+);
 
 module.exports = router;

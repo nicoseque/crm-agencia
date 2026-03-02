@@ -1,129 +1,84 @@
 import { useEffect, useState } from 'react';
 import { createQuote } from '../../services/quotes.service';
-import { getAssignableUsers } from '../../services/users.service';
 import { apiFetch } from '../../services/api';
+import { getAssignableUsers } from '../../services/users.service';
 
 function CreateQuoteModal({ open, onClose, onCreated }) {
+  const [products, setProducts] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [loadingUsers, setLoadingUsers] = useState(false);
   const [error, setError] = useState(null);
 
-  const [clientFound, setClientFound] = useState(null);
-  const [checkingDni, setCheckingDni] = useState(false);
-
-  // 🔽 Forma de pago
-  const [paymentMethod, setPaymentMethod] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
-  const [saveCard, setSaveCard] = useState(false);
-
   const [form, setForm] = useState({
-    seller_id: '',
-    client_dni: '',
+    product: '',
+    total_amount: '',
+
     client_first_name: '',
     client_last_name: '',
-    interest_type: '',
-    product: '',
-    description: '',
-    total_amount: '',
-    currency: 'ARS'
+
+    seller_id: '',
+
+    installments_qty: '',
+    installment_final: '',
+    installment_pure: '',
+    retiro_from_installment: '',
+    mechanisms: '',
+    retiro_costs: '',
+    adjudication_programmed: '',
+
+    has_used_vehicle: false,
+    vehicle_brand: '',
+    vehicle_model: '',
+    vehicle_version: '',
+    vehicle_year: '',
+    vehicle_price: '',
+
+    benefits: ''
   });
 
   useEffect(() => {
     if (!open) return;
 
-    setError(null);
-    setClientFound(null);
-    setVendors([]);
-    setLoadingUsers(true);
-
-    setPaymentMethod('');
-    setCardNumber('');
-    setCardExpiry('');
-    setCardCvv('');
-    setSaveCard(false);
+    apiFetch('/products')
+      .then(data =>
+        setProducts(Array.isArray(data) ? data.filter(p => p.active) : [])
+      )
+      .catch(() => setProducts([]));
 
     getAssignableUsers()
-      .then(data => setVendors(data || []))
-      .catch(() => setError('No se pudieron cargar los usuarios asignables'))
-      .finally(() => setLoadingUsers(false));
+      .then(setVendors)
+      .catch(() => setVendors([]));
+
+    setError(null);
   }, [open]);
 
   if (!open) return null;
 
   const handleChange = e => {
+    const { name, value, type, checked } = e.target;
     setForm(prev => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [name]: type === 'checkbox' ? checked : value
     }));
-  };
-
-  const handleDniBlur = async () => {
-    const dni = form.client_dni.trim();
-    if (!dni) {
-      setClientFound(null);
-      return;
-    }
-
-    setCheckingDni(true);
-    setClientFound(null);
-
-    try {
-      const client = await apiFetch(`/clients/by-dni/${dni}`);
-      if (client) {
-        setClientFound(client);
-        setForm(prev => ({
-          ...prev,
-          client_first_name: client.name || '',
-          client_last_name: client.last_name || ''
-        }));
-      }
-    } catch (err) {
-      if (err.message?.includes('404')) setClientFound(false);
-      else setError('Error buscando cliente por DNI');
-    } finally {
-      setCheckingDni(false);
-    }
   };
 
   const handleSubmit = async e => {
     e.preventDefault();
-    setError(null);
-
-    if (!form.seller_id) {
-      setError('Seleccioná un responsable comercial');
-      return;
-    }
-
-    if (form.client_dni.trim() && clientFound === false) {
-      setError(
-        'El DNI ingresado no pertenece a un cliente existente. Registrá el cliente o quitá el DNI.'
-      );
-      return;
-    }
-
     setLoading(true);
+    setError(null);
 
     try {
       await createQuote({
+        ...form,
         seller_id: Number(form.seller_id),
-        client_dni: form.client_dni.trim() || null,
-        client_first_name: form.client_first_name.trim(),
-        client_last_name: form.client_last_name.trim(),
-        interest_type: form.interest_type.trim(),
-        product: form.product.trim(),
-        description: form.description?.trim() || null,
         total_amount: Number(form.total_amount),
-        currency: form.currency,
-
-        // 🔽 NUEVO: se envía todo
-        payment_method: paymentMethod || null,
-        card_number: paymentMethod === 'TARJETA' ? cardNumber : null,
-        card_expiry: paymentMethod === 'TARJETA' ? cardExpiry : null,
-        card_cvv: paymentMethod === 'TARJETA' ? cardCvv : null,
-        save_card: paymentMethod === 'TARJETA' ? saveCard : false
+        installments_qty: Number(form.installments_qty),
+        installment_final: Number(form.installment_final),
+        installment_pure: Number(form.installment_pure),
+        retiro_from_installment: Number(form.retiro_from_installment),
+        retiro_costs: Number(form.retiro_costs),
+        vehicle_year: form.has_used_vehicle ? Number(form.vehicle_year) : null,
+        vehicle_price: form.has_used_vehicle ? Number(form.vehicle_price) : null
       });
 
       onCreated();
@@ -139,95 +94,34 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
     <div style={overlay}>
       <div style={modal}>
         <div style={header}>
-          <div>
-            <h2 style={{ margin: 0 }}>Nuevo presupuesto</h2>
-            <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>
-              Cargá los datos del cliente y del responsable
-            </p>
-          </div>
+          <h3>Nuevo presupuesto</h3>
           <button onClick={onClose} style={closeBtn}>✕</button>
         </div>
 
         <form onSubmit={handleSubmit} style={formStyle}>
-          <Field label="Responsable comercial">
+          {/* PRODUCTO */}
+          <Section title="Producto">
             <select
-              name="seller_id"
-              value={form.seller_id}
-              onChange={handleChange}
               required
-              disabled={loadingUsers}
+              onChange={e => {
+                const p = products.find(x => x.id === Number(e.target.value));
+                if (!p) return;
+                setForm(prev => ({
+                  ...prev,
+                  product: `${p.model} – Plan ${p.plan_type}`,
+                  total_amount: ''
+                }));
+              }}
             >
-              <option value="">
-                {loadingUsers ? 'Cargando usuarios…' : 'Seleccionar Vendedor'}
-              </option>
-              {vendors.map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({u.role})
+              <option value="">Seleccionar producto</option>
+              {products.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.model} – Plan {p.plan_type}
                 </option>
               ))}
             </select>
-          </Field>
 
-          <div style={grid2}>
-            <Field label="DNI">
-              <input
-                name="client_dni"
-                value={form.client_dni}
-                onChange={handleChange}
-                onBlur={handleDniBlur}
-              />
-            </Field>
-
-            <Field label="Nombre">
-              <input
-                name="client_first_name"
-                value={form.client_first_name}
-                onChange={handleChange}
-                required
-              />
-            </Field>
-
-            <Field label="Apellido">
-              <input
-                name="client_last_name"
-                value={form.client_last_name}
-                onChange={handleChange}
-                required
-              />
-            </Field>
-          </div>
-
-          <div style={grid2}>
-            <Field label="Producto">
-              <input
-                name="product"
-                value={form.product}
-                onChange={handleChange}
-                required
-              />
-            </Field>
-
-            <Field label="Tipo de interés">
-              <input
-                name="interest_type"
-                value={form.interest_type}
-                onChange={handleChange}
-                required
-              />
-            </Field>
-          </div>
-
-          <Field label="Descripción (opcional)">
-            <textarea
-              name="description"
-              rows={3}
-              value={form.description}
-              onChange={handleChange}
-            />
-          </Field>
-
-          <div style={grid2}>
-            <Field label="Monto total">
+            <Field label="Valor del producto">
               <input
                 type="number"
                 name="total_amount"
@@ -236,77 +130,99 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
                 required
               />
             </Field>
+          </Section>
 
-            <Field label="Moneda">
-              <select
-                name="currency"
-                value={form.currency}
-                onChange={handleChange}
-              >
-                <option value="ARS">ARS</option>
-                <option value="USD">USD</option>
-              </select>
-            </Field>
-          </div>
-
-          <Field label="Forma de pago">
-            <select
-              value={paymentMethod}
-              onChange={e => setPaymentMethod(e.target.value)}
-            >
-              <option value="">Seleccionar forma de pago</option>
-              <option value="EFECTIVO">Efectivo</option>
-              <option value="TRANSFERENCIA">Transferencia</option>
-              <option value="TARJETA">Tarjeta de crédito</option>
-            </select>
-          </Field>
-
-          {paymentMethod === 'TARJETA' && (
-            <div style={cardBox}>
-              <Field label="Número de tarjeta">
-                <input
-                  value={cardNumber}
-                  onChange={e => setCardNumber(e.target.value)}
-                />
+          {/* CLIENTE */}
+          <Section title="Cliente">
+            <Grid>
+              <Field label="Nombre">
+                <input name="client_first_name" value={form.client_first_name} onChange={handleChange} required />
               </Field>
+              <Field label="Apellido">
+                <input name="client_last_name" value={form.client_last_name} onChange={handleChange} required />
+              </Field>
+            </Grid>
+          </Section>
 
-              <div style={grid2}>
-                <Field label="Vencimiento (MM/AA)">
-                  <input
-                    value={cardExpiry}
-                    onChange={e => setCardExpiry(e.target.value)}
-                  />
+          {/* VENDEDOR */}
+          <Section title="Vendedor">
+            <select name="seller_id" value={form.seller_id} onChange={handleChange} required>
+              <option value="">Seleccionar vendedor</option>
+              {vendors.map(v => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </select>
+          </Section>
+
+          {/* PLAN */}
+          <Section title="Datos del plan">
+            <Grid>
+              <Field label="Cantidad de cuotas">
+                <input type="number" name="installments_qty" value={form.installments_qty} onChange={handleChange} required />
+              </Field>
+              <Field label="Cuota final">
+                <input type="number" name="installment_final" value={form.installment_final} onChange={handleChange} required />
+              </Field>
+              <Field label="Cuota pura">
+                <input type="number" name="installment_pure" value={form.installment_pure} onChange={handleChange} required />
+              </Field>
+              <Field label="Retiro desde cuota">
+                <input type="number" name="retiro_from_installment" value={form.retiro_from_installment} onChange={handleChange} required />
+              </Field>
+              <Field label="Mecanismos">
+                <input name="mechanisms" value={form.mechanisms} onChange={handleChange} />
+              </Field>
+              <Field label="Gastos de retiro (%)">
+                <input type="number" name="retiro_costs" value={form.retiro_costs} onChange={handleChange} />
+              </Field>
+              <Field label="Adjudicación programada">
+                <input name="adjudication_programmed" value={form.adjudication_programmed} onChange={handleChange} />
+              </Field>
+            </Grid>
+          </Section>
+
+          {/* USADO */}
+          <Section title="¿Entrega vehículo usado en parte de pago?">
+            <label style={{ fontSize: 13 }}>
+              <input
+                type="checkbox"
+                name="has_used_vehicle"
+                checked={form.has_used_vehicle}
+                onChange={handleChange}
+              />{' '}
+              Sí
+            </label>
+
+            {form.has_used_vehicle && (
+              <Grid>
+                <Field label="Marca">
+                  <input name="vehicle_brand" value={form.vehicle_brand} onChange={handleChange} />
                 </Field>
-
-                <Field label="CVV">
-                  <input
-                    value={cardCvv}
-                    onChange={e => setCardCvv(e.target.value)}
-                  />
+                <Field label="Modelo">
+                  <input name="vehicle_model" value={form.vehicle_model} onChange={handleChange} />
                 </Field>
-              </div>
+                <Field label="Versión">
+                  <input name="vehicle_version" value={form.vehicle_version} onChange={handleChange} />
+                </Field>
+                <Field label="Año">
+                  <input type="number" name="vehicle_year" value={form.vehicle_year} onChange={handleChange} />
+                </Field>
+                <Field label="Valor estimado">
+                  <input type="number" name="vehicle_price" value={form.vehicle_price} onChange={handleChange} />
+                </Field>
+              </Grid>
+            )}
+          </Section>
 
-              <label style={{ fontSize: 13 }}>
-                <input
-                  type="checkbox"
-                  checked={saveCard}
-                  onChange={e => setSaveCard(e.target.checked)}
-                />{' '}
-                Guardar datos de la tarjeta
-              </label>
-            </div>
-          )}
+          {/* BENEFICIOS */}
+          <Section title={`Beneficios para ${form.client_first_name || 'el cliente'}`}>
+            <textarea name="benefits" rows={3} value={form.benefits} onChange={handleChange} />
+          </Section>
 
-          {error && (
-            <div style={{ color: '#dc2626', fontSize: 13 }}>
-              {error}
-            </div>
-          )}
+          {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
           <div style={actions}>
-            <button type="button" onClick={onClose} style={cancelBtn}>
-              Cancelar
-            </button>
+            <button type="button" onClick={onClose} style={cancelBtn}>Cancelar</button>
             <button type="submit" disabled={loading} style={submitBtn}>
               {loading ? 'Creando…' : 'Crear presupuesto'}
             </button>
@@ -317,18 +233,27 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
   );
 }
 
-/* ---------- AUX ---------- */
+/* UI helpers + styles (idénticos a los que ya usás) */
 
-function Field({ label, children }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={{ fontSize: 12, fontWeight: 600 }}>{label}</label>
-      {children}
-    </div>
-  );
-}
+const Section = ({ title, children }) => (
+  <div>
+    <h4 style={{ margin: '10px 0 6px' }}>{title}</h4>
+    {children}
+  </div>
+);
 
-/* ---------- STYLES ---------- */
+const Field = ({ label, children }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <label style={{ fontSize: 12 }}>{label}</label>
+    {children}
+  </div>
+);
+
+const Grid = ({ children }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+    {children}
+  </div>
+);
 
 const overlay = {
   position: 'fixed',
@@ -336,65 +261,56 @@ const overlay = {
   background: 'rgba(0,0,0,0.45)',
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 1000
+  justifyContent: 'center'
 };
 
 const modal = {
   background: '#fff',
-  borderRadius: 16,
-  width: 560,
-  padding: 24
+  width: 620,
+  maxHeight: '90vh',
+  borderRadius: 14,
+  padding: 16,
+  display: 'flex',
+  flexDirection: 'column'
 };
 
 const header = {
   display: 'flex',
   justifyContent: 'space-between',
-  marginBottom: 20
+  alignItems: 'center'
 };
 
 const closeBtn = {
   border: 'none',
   background: 'transparent',
-  fontSize: 20,
+  fontSize: 18,
   cursor: 'pointer'
 };
 
 const formStyle = {
+  overflowY: 'auto',
+  marginTop: 8,
   display: 'flex',
   flexDirection: 'column',
-  gap: 16
-};
-
-const grid2 = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: 16
-};
-
-const cardBox = {
-  padding: 16,
-  border: '1px solid #e5e7eb',
-  borderRadius: 10,
-  background: '#f9fafb'
+  gap: 12
 };
 
 const actions = {
   display: 'flex',
   justifyContent: 'flex-end',
-  gap: 12
+  gap: 10,
+  marginTop: 10
 };
 
 const cancelBtn = {
-  padding: '10px 16px',
-  borderRadius: 10,
-  border: '1px solid #e5e7eb',
-  background: '#fff'
+  padding: '8px 14px',
+  borderRadius: 8,
+  border: '1px solid #e5e7eb'
 };
 
 const submitBtn = {
-  padding: '10px 18px',
-  borderRadius: 10,
+  padding: '8px 16px',
+  borderRadius: 8,
   border: 'none',
   background: '#2563eb',
   color: '#fff'

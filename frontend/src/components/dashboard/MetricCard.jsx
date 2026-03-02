@@ -3,11 +3,11 @@ import { useEffect, useState } from 'react';
 function MetricCard({
   title,
   value,
-  isMoney = false,
+  isMoney = false, // 👈 se mantiene por compatibilidad
   subtitle,
   icon,
   footer,
-  index = 0 // 👈 orden para el delay
+  index = 0
 }) {
   const [mounted, setMounted] = useState(false);
 
@@ -16,9 +16,11 @@ function MetricCard({
     return () => clearTimeout(t);
   }, [index]);
 
+  // 🔥 CAMBIO CLAVE:
+  // Ya NO se formatea como dinero
   const display =
-    isMoney && typeof value === 'number'
-      ? `$ ${value.toLocaleString('es-AR')}`
+    typeof value === 'number'
+      ? value.toLocaleString('es-AR')
       : value;
 
   return (
@@ -35,9 +37,7 @@ function MetricCard({
 
         /* 🎬 ANIMACIÓN */
         opacity: mounted ? 1 : 0,
-        transform: mounted
-          ? 'translateY(0)'
-          : 'translateY(60px)',
+        transform: mounted ? 'translateY(0)' : 'translateY(60px)',
         transition: 'opacity 0.8s ease-out, transform 0.8s ease-out'
       }}
     >

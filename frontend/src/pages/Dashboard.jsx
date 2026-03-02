@@ -3,10 +3,28 @@ import MetricCard from '../components/dashboard/MetricCard';
 import Pipeline from '../components/pipeline/Pipeline';
 import QuoteHistory from '../components/quotes/QuoteHistory';
 import CreateQuoteModal from '../components/quotes/CreateQuoteModal';
+import ApproveQuoteModal from '../components/quotes/ApproveQuoteModal';
+import { openQuotePdf } from '../services/quotes.service';
 
-import { updateQuoteStatus } from '../services/quotes.service';
+import {
+  updateQuoteStatus
+} from '../services/quotes.service';
+
 import { getDashboardKpis } from '../services/metrics.service';
 import { getPipeline } from '../services/pipeline.service';
+
+// ===== AGREGADO =====
+const getUserRole = () => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload?.role || null;
+  } catch {
+    return null;
+  }
+};
+// ====================
 
 function Dashboard() {
   const [columns, setColumns] = useState([]);
@@ -16,7 +34,18 @@ function Dashboard() {
   const [loadingKpis, setLoadingKpis] = useState(true);
 
   const [openCreateQuote, setOpenCreateQuote] = useState(false);
+  const [openApproveModal, setOpenApproveModal] = useState(false);
   const [showExpiredOnly, setShowExpiredOnly] = useState(false);
+  const [onlyCurrentMonth, setOnlyCurrentMonth] = useState(false);
+
+  // ===== AGREGADO =====
+  const userRole = getUserRole();
+  const isSeller = userRole === 'VENDEDOR';
+  // ====================
+
+  // ===== AGREGADO FILTRO APROBADOS MES =====
+  const [showApprovedThisMonth, setShowApprovedThisMonth] = useState(false);
+  // ========================================
 
   const loadPipeline = async () => {
     const data = await getPipeline();
@@ -39,10 +68,9 @@ function Dashboard() {
     loadAll();
   }, []);
 
-  const handleApprove = async () => {
-    await updateQuoteStatus(selectedLead.id, 'APROBADO');
-    setSelectedLead(null);
-    await loadAll();
+  const handleApprove = () => {
+    if (!selectedLead) return;
+    setOpenApproveModal(true);
   };
 
   const handleMoveToSent = async () => {
@@ -51,9 +79,6 @@ function Dashboard() {
     await loadAll();
   };
 
-  /* =========================
-     🔥 CÁLCULO DE VENCIDOS
-     ========================= */
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -73,10 +98,38 @@ function Dashboard() {
     return acc;
   }, 0);
 
+  // ===== AGREGADO FILTRO APROBADOS MES =====
+  const isFromCurrentMonth = (dateString) => {
+    if (!dateString) return false;
+    const d = new Date(dateString);
+    return (
+      d.getMonth() === today.getMonth() &&
+      d.getFullYear() === today.getFullYear()
+    );
+  };
+
+const filteredColumns = columns.map(col => {
+  // solo filtra aprobados y cancelados
+  if (
+    col.status !== 'APROBADO' &&
+    col.status !== 'CANCELADO'
+  ) {
+    return col;
+  }
+
+  if (!showApprovedThisMonth) return col;
+
+  return {
+    ...col,
+    leads: col.leads?.filter(lead =>
+      isFromCurrentMonth(lead.resolved_at)
+    )
+  };
+});  // ========================================
+
   return (
     <>
       <main style={{ flex: 1, padding: 24 }}>
-        {/* KPIs */}
         <div
           style={{
             display: 'grid',
@@ -116,43 +169,20 @@ function Dashboard() {
           />
 
           <MetricCard
-  title="Tasa de aprobación"
-  value={
-    loadingKpis
-      ? '…'
-      : `${
-          (kpis?.aprobados +
-            kpis?.enviados +
-            kpis?.cancelados +
-            kpis?.leads_activos) > 0
-            ? Math.round(
-                (kpis.aprobados /
-                  (kpis.aprobados +
-                    kpis.enviados +
-                    kpis.cancelados +
-                    kpis.leads_activos)) *
-                  100
-              )
-            : 0
-        }%`
-  }
-  subtitle="Aprobados / Generados"
-  icon="📈"
-/>
-
-
-          <MetricCard
-            title="Ventas del mes"
-            value={
-              loadingKpis
-                ? '…'
-                : `$ ${Number(kpis?.ventas_mes_actual || 0).toLocaleString(
-                    'es-AR'
-                  )}`
-            }
-            subtitle="Mes en curso"
-            icon="💵"
+            title="Tasa de aprobación"
+            value={loadingKpis ? '…' : `${kpis?.tasa_aprobacion ?? 0}%`}
+            subtitle="Aprobados / Enviados (mes)"
+            icon="📈"
           />
+
+          {!isSeller && (
+            <MetricCard
+              title="Planes vendidos"
+              value={loadingKpis ? '…' : kpis?.ventas_mes_actual ?? 0}
+              subtitle="Mes en curso"
+              icon="📦"
+            />
+          )}
 
           <MetricCard
             title="Variación mensual"
@@ -160,24 +190,30 @@ function Dashboard() {
             subtitle="Vs mes anterior"
             icon="📊"
           />
-
-          <MetricCard
-            title="Ticket promedio"
-            value={
-              loadingKpis
-                ? '…'
-                : `$ ${Number(kpis?.ticket_promedio || 0).toLocaleString(
-                    'es-AR'
-                  )}`
-            }
-            subtitle="Solo aprobados"
-            icon="🎯"
-          />
         </div>
 
-        {/* PIPELINE */}
+        {/* ===== BOTÓN FILTRO APROBADOS MES ===== */}
+        <div style={{ marginBottom: 10 }}>
+          <button
+            onClick={() => setShowApprovedThisMonth(v => !v)}
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              padding: '6px 12px',
+              borderRadius: 999,
+              border: '1px solid #22c55e',
+              background: showApprovedThisMonth ? '#dcfce7' : '#fff',
+              color: '#166534',
+              cursor: 'pointer'
+            }}
+          >
+            {showApprovedThisMonth ? 'Mes actual ✓' : 'Mes actual'}
+          </button>
+        </div>
+        {/* ==================================== */}
+
         <Pipeline
-          columns={columns}
+          columns={filteredColumns}
           onSelectLead={setSelectedLead}
           onDropLead={async (id, status) => {
             await updateQuoteStatus(id, status);
@@ -187,7 +223,6 @@ function Dashboard() {
         />
       </main>
 
-      {/* SIDEBAR */}
       {selectedLead && (
         <div style={panelWrapper}>
           <div style={panelHeader}>
@@ -214,24 +249,19 @@ function Dashboard() {
 
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 11, color: '#9ca3af' }}>
-                MONTO
+                ESTADO
               </div>
-              <div style={{ fontSize: 22, fontWeight: 800 }}>
-                $ {Number(selectedLead.amount || 0).toLocaleString('es-AR')}
+              <div style={{ fontSize: 16, fontWeight: 700 }}>
+                {selectedLead.status}
               </div>
             </div>
 
-            <button
-              onClick={() =>
-                window.open(
-                  `${import.meta.env.VITE_API_URL}/quotes/${selectedLead.id}/pdf`,
-                  '_blank'
-                )
-              }
-              style={primaryBtn}
-            >
-              📄 Generar PDF
-            </button>
+           <button
+  onClick={() => openQuotePdf(selectedLead.id)}
+  style={primaryBtn}
+>
+  📄 Generar PDF
+</button>
 
             {selectedLead.status === 'BORRADOR' && (
               <button onClick={handleMoveToSent} style={secondaryBtn}>
@@ -261,7 +291,17 @@ function Dashboard() {
         </div>
       )}
 
-      {/* NUEVO PRESUPUESTO */}
+      <ApproveQuoteModal
+        open={openApproveModal}
+        quote={selectedLead}
+        onClose={() => setOpenApproveModal(false)}
+        onApproved={async () => {
+          setOpenApproveModal(false);
+          setSelectedLead(null);
+          await loadAll();
+        }}
+      />
+
       <button
         onClick={() => setOpenCreateQuote(true)}
         title="Nuevo presupuesto"
@@ -295,9 +335,7 @@ function Dashboard() {
 
 export default Dashboard;
 
-/* =========================
-   🎨 ESTILOS SIDEBAR
-   ========================= */
+/* ===== ESTILOS ===== */
 
 const panelWrapper = {
   position: 'fixed',

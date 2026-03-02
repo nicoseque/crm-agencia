@@ -5,7 +5,8 @@ const clientsService = require('./clients.service');
  */
 const createClient = async (req, res) => {
   try {
-    const client = await clientsService.create(req.body);
+    const userId = req.user.id;
+    const client = await clientsService.create(req.body, userId);
     res.status(201).json(client);
   } catch (error) {
     console.error('❌ Error creando cliente:', error);
@@ -14,11 +15,11 @@ const createClient = async (req, res) => {
 };
 
 /**
- * Listar clientes
+ * Listar clientes (según rol)
  */
 const getClients = async (req, res) => {
   try {
-    const clients = await clientsService.findAll();
+    const clients = await clientsService.findAllByUser(req.user);
     res.json(clients);
   } catch (error) {
     console.error('❌ Error listando clientes:', error);
@@ -27,14 +28,17 @@ const getClients = async (req, res) => {
 };
 
 /**
- * Obtener cliente por ID
+ * Obtener cliente por ID (respeta visibilidad)
  */
 const getClientById = async (req, res) => {
   try {
-    const client = await clientsService.findById(req.params.id);
+    const clients = await clientsService.findAllByUser(req.user);
+    const client = clients.find(c => c.id === Number(req.params.id));
+
     if (!client) {
       return res.status(404).json({ message: 'Cliente no encontrado' });
     }
+
     res.json(client);
   } catch (error) {
     console.error('❌ Error obteniendo cliente:', error);
@@ -43,14 +47,17 @@ const getClientById = async (req, res) => {
 };
 
 /**
- * Obtener cliente por DNI
+ * Obtener cliente por DNI (respeta visibilidad)
  */
 const getClientByDni = async (req, res) => {
   try {
-    const client = await clientsService.findByDni(req.params.dni);
+    const clients = await clientsService.findAllByUser(req.user);
+    const client = clients.find(c => c.dni === req.params.dni);
+
     if (!client) {
       return res.status(404).json({ message: 'Cliente no existe' });
     }
+
     res.json(client);
   } catch (error) {
     console.error('❌ Error obteniendo cliente por DNI:', error);
@@ -63,10 +70,19 @@ const getClientByDni = async (req, res) => {
  */
 const updateClient = async (req, res) => {
   try {
+    const clients = await clientsService.findAllByUser(req.user);
+    const allowed = clients.some(c => c.id === Number(req.params.id));
+
+    if (!allowed) {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
     const client = await clientsService.update(req.params.id, req.body);
+
     if (!client) {
       return res.status(404).json({ message: 'Cliente no encontrado' });
     }
+
     res.json(client);
   } catch (error) {
     console.error('❌ Error actualizando cliente:', error);
@@ -79,10 +95,19 @@ const updateClient = async (req, res) => {
  */
 const deactivateClient = async (req, res) => {
   try {
+    const clients = await clientsService.findAllByUser(req.user);
+    const allowed = clients.some(c => c.id === Number(req.params.id));
+
+    if (!allowed) {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
     const client = await clientsService.deactivate(req.params.id);
+
     if (!client) {
       return res.status(404).json({ message: 'Cliente no encontrado' });
     }
+
     res.json({ message: 'Cliente desactivado correctamente' });
   } catch (error) {
     console.error('❌ Error desactivando cliente:', error);

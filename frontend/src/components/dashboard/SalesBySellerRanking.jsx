@@ -1,20 +1,55 @@
-function SalesBySellerRanking({ data }) {
-  if (!data || !data.length) {
-    return (
-      <div
-        style={{
-          background: '#ffffff',
-          border: '1px solid #e5e7eb',
-          borderRadius: 14,
-          padding: 24,
-          color: '#6b7280'
-        }}
-      >
-        No hay datos comerciales aún
-      </div>
-    );
-  }
+import { useEffect, useMemo, useState } from 'react';
+import { getSalesBySeller } from '../../services/metrics.service';
+function SalesBySellerRanking() {
+  /* =====================
+     ESTADO
+  ===================== */
+  const [month, setMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
 
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  /* =====================
+     FETCH
+  ===================== */
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await getSalesBySeller(month);
+        setData(Array.isArray(res?.data) ? res.data : []);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [month]);
+
+  /* =====================
+     HELPERS
+  ===================== */
+  const formatMonthLabel = (yyyyMm) => {
+    if (!yyyyMm) return '';
+    const [y, m] = yyyyMm.split('-').map(Number);
+    if (!y || !m) return '';
+    return new Date(y, m - 1, 1).toLocaleDateString('es-AR', {
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
+  const monthLabel = useMemo(
+    () => formatMonthLabel(month),
+    [month]
+  );
+
+  /* =====================
+     RENDER
+  ===================== */
   return (
     <div
       style={{
@@ -22,162 +57,175 @@ function SalesBySellerRanking({ data }) {
         background: '#ffffff',
         border: '1px solid #e5e7eb',
         borderRadius: 14,
-        padding: 24,
-        color: '#111827'
+        padding: 24
       }}
     >
-      {/* HEADER */}
-      <div style={{ marginBottom: 20 }}>
-        <div
-          style={{
-            fontSize: 12,
-            color: '#6b7280',
-            textTransform: 'uppercase',
-            fontWeight: 600,
-            letterSpacing: 0.4
-          }}
-        >
-          Performance comercial
+      {/* HEADER + FILTRO */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 20
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontSize: 12,
+              color: '#6b7280',
+              fontWeight: 600
+            }}
+          >
+            📊 Performance comercial
+          </div>
+
+          <h3 style={{ fontSize: 18, fontWeight: 700 }}>
+            🏆 Ranking de vendedores –{' '}
+            <span style={{ textTransform: 'capitalize' }}>
+              {monthLabel}
+            </span>
+          </h3>
         </div>
-        <h3 style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>
-          Ranking de vendedores
-        </h3>
+
+        {/* FILTRO POR MES */}
+        <input
+          type="month"
+          value={month}
+          onChange={e => setMonth(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            borderRadius: 8,
+            border: '1px solid #e5e7eb',
+            fontWeight: 600
+          }}
+        />
       </div>
 
-      {/* LIST */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {data.map((row, index) => {
-          const generated = row.total_quotes ?? 0;
-          const approved = row.approved_quotes ?? 0;
-          const effectiveness = row.effectiveness ?? 0;
+      {/* LOADING */}
+      {loading && (
+        <div style={{ padding: 24, textAlign: 'center', color: '#6b7280' }}>
+          Cargando ranking…
+        </div>
+      )}
 
-          const isFirst = index === 0;
-          const isSecond = index === 1;
+      {/* EMPTY */}
+      {!loading && data.length === 0 && (
+        <div
+          style={{
+            padding: 24,
+            borderRadius: 12,
+            border: '1px dashed #e5e7eb',
+            color: '#6b7280',
+            textAlign: 'center'
+          }}
+        >
+          🚫 No hubo actividad comercial en{' '}
+          <strong style={{ textTransform: 'capitalize' }}>
+            {monthLabel}
+          </strong>
+        </div>
+      )}
 
-          const medal = isFirst ? '🥇' : isSecond ? '🥈' : null;
+      {/* LISTADO */}
+      {!loading && data.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {data.map((row, index) => {
+            const generated = Number(row.generated_quotes) || 0;
+            const approved = Number(row.approved_quotes) || 0;
+            const effectiveness =
+              typeof row.effectiveness === 'number'
+                ? row.effectiveness
+                : generated > 0
+                ? Math.round((approved / generated) * 100)
+                : 0;
 
-          return (
-            <div
-              key={row.seller_id}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '36px 1fr 1fr 140px',
-                gap: 16,
-                alignItems: 'center',
-                padding: '16px 18px',
-                borderRadius: 12,
-                border: isFirst
-                  ? '1px solid #facc15'
-                  : isSecond
-                  ? '1px solid #cbd5e1'
-                  : '1px solid #e5e7eb',
-                background: isFirst
-                  ? '#fffbeb'
-                  : isSecond
-                  ? '#f8fafc'
-                  : '#f9fafb'
-              }}
-            >
-              {/* POS / MEDAL */}
+            const rank =
+              index === 0 ? '🥇' :
+              index === 1 ? '🥈' :
+              index === 2 ? '🥉' :
+              index + 1;
+
+            return (
               <div
+                key={row.seller_id}
                 style={{
-                  fontWeight: 800,
-                  fontSize: 18,
-                  color: isFirst
-                    ? '#ca8a04'
-                    : isSecond
-                    ? '#64748b'
-                    : '#6b7280'
+                  display: 'grid',
+                  gridTemplateColumns: '40px 2fr repeat(3, 1fr)',
+                  gap: 16,
+                  padding: '16px 18px',
+                  borderRadius: 12,
+                  background: index === 0 ? '#f0f9ff' : '#f9fafb',
+                  border:
+                    index === 0
+                      ? '2px solid #38bdf8'
+                      : '1px solid #e5e7eb',
+                  alignItems: 'center'
                 }}
               >
-                {medal ?? index + 1}
-              </div>
-
-              {/* SELLER */}
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>
-                  {row.seller_name}
+                {/* RANK */}
+                <div style={{ fontWeight: 800, textAlign: 'center' }}>
+                  {rank}
                 </div>
 
-                {isFirst && (
+                {/* VENDEDOR */}
+                <div>
+                  <div style={{ fontWeight: 700 }}>
+                    👤 {row.seller_name || 'Sin nombre'}
+                  </div>
+                  {index === 0 && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: '#0284c7',
+                        fontWeight: 600
+                      }}
+                    >
+                      Vendedor destacado
+                    </div>
+                  )}
+                </div>
+
+                {/* GENERADOS */}
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: '#6b7280' }}>
+                    📄 Generados
+                  </div>
+                  <div style={{ fontWeight: 800 }}>{generated}</div>
+                </div>
+
+                {/* APROBADOS */}
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: '#6b7280' }}>
+                    ✅ Aprobados
+                  </div>
+                  <div style={{ fontWeight: 800 }}>{approved}</div>
+                </div>
+
+                {/* EFECTIVIDAD */}
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: '#6b7280' }}>
+                    📊 Efectividad
+                  </div>
                   <div
                     style={{
-                      marginTop: 2,
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: '#ca8a04'
-                    }}
-                  >
-                    Vendedor destacado
-                  </div>
-                )}
-              </div>
-
-              {/* KPIs */}
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 18,
-                  fontSize: 12,
-                  color: '#6b7280'
-                }}
-              >
-                <div>
-                  <div>Generados</div>
-                  <strong style={{ fontSize: 15, color: '#111827' }}>
-                    {generated}
-                  </strong>
-                </div>
-
-                <div>
-                  <div>Aprobados</div>
-                  <strong style={{ fontSize: 15, color: '#111827' }}>
-                    {approved}
-                  </strong>
-                </div>
-
-                <div>
-                  <div>Efectividad</div>
-                  <strong
-                    style={{
-                      fontSize: 15,
+                      fontWeight: 800,
                       color:
-                        effectiveness >= 50
+                        effectiveness >= 80
                           ? '#16a34a'
-                          : effectiveness > 0
+                          : effectiveness >= 50
                           ? '#ca8a04'
                           : '#9ca3af'
                     }}
                   >
                     {effectiveness}%
-                  </strong>
+                  </div>
                 </div>
               </div>
-
-              {/* MONTO */}
-              <div style={{ textAlign: 'right' }}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: '#6b7280'
-                  }}
-                >
-                  Monto aprobado
-                </div>
-                <div
-                  style={{
-                    fontSize: 16,
-                    fontWeight: 800,
-                    color: '#16a34a'
-                  }}
-                >
-                  $ {Number(row.total_amount).toLocaleString('es-AR')}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

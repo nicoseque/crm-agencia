@@ -4,38 +4,81 @@ import {
   createUser,
   deactivateUser,
   activateUser,
+  getAssignableUsers,
 } from '../services/users.service';
 
 export default function Users() {
   const [users, setUsers] = useState([]);
+  const [supervisors, setSupervisors] = useState([]);
   const [showForm, setShowForm] = useState(false);
+
+  // 🔥 LEEMOS TOKEN REAL
+  const token = localStorage.getItem('token');
+  const decoded = token ? JSON.parse(atob(token.split('.')[1])) : null;
+  const currentRole = decoded?.role;
+
   const [form, setForm] = useState({
     name: '',
     email: '',
     password: '',
     role: 'VENDEDOR',
+    supervisor_id: '',
   });
 
   const loadUsers = () => {
     getUsers().then(setUsers);
   };
 
+  const loadSupervisors = () => {
+    getAssignableUsers().then((data) => {
+      setSupervisors(data.filter((u) => u.role === 'SUPERVISOR'));
+    });
+  };
+
   useEffect(() => {
     loadUsers();
+    loadSupervisors();
   }, []);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    createUser(form).then(() => {
-      setForm({ name: '', email: '', password: '', role: 'VENDEDOR' });
+    if (form.role === 'VENDEDOR' && !form.supervisor_id) {
+      alert('Debés seleccionar un supervisor para el vendedor');
+      return;
+    }
+
+    const payload = {
+      name: form.name,
+      email: form.email,
+      password: form.password,
+      role: form.role,
+      ...(form.role === 'VENDEDOR' && {
+        supervisor_id: Number(form.supervisor_id),
+      }),
+    };
+
+    try {
+      await createUser(payload);
+
+      setForm({
+        name: '',
+        email: '',
+        password: '',
+        role: 'VENDEDOR',
+        supervisor_id: '',
+      });
+
       setShowForm(false);
       loadUsers();
-    });
+
+    } catch (error) {
+      alert(error.message || 'Error al crear usuario');
+    }
   };
 
   const handleDeactivate = (user) => {
@@ -62,7 +105,6 @@ export default function Users() {
           boxShadow: '0 10px 40px rgba(0,0,0,.08)',
         }}
       >
-        {/* HEADER */}
         <div
           style={{
             display: 'flex',
@@ -78,30 +120,31 @@ export default function Users() {
             </p>
           </div>
 
-          <button
-            onClick={() => setShowForm(!showForm)}
-            style={{
-              padding: '10px 18px',
-              borderRadius: 12,
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: 14,
-              color: showForm ? '#374151' : '#fff',
-              background: showForm
-                ? '#e5e7eb'
-                : 'linear-gradient(135deg, #4f46e5, #6366f1)',
-              boxShadow: showForm
-                ? 'none'
-                : '0 8px 24px rgba(79,70,229,.35)',
-            }}
-          >
-            {showForm ? 'Cancelar' : '+ Nuevo usuario'}
-          </button>
+          {currentRole !== 'VENDEDOR' && (
+            <button
+              onClick={() => setShowForm(!showForm)}
+              style={{
+                padding: '10px 18px',
+                borderRadius: 12,
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: 14,
+                color: showForm ? '#374151' : '#fff',
+                background: showForm
+                  ? '#e5e7eb'
+                  : 'linear-gradient(135deg, #4f46e5, #6366f1)',
+                boxShadow: showForm
+                  ? 'none'
+                  : '0 8px 24px rgba(79,70,229,.35)',
+              }}
+            >
+              {showForm ? 'Cancelar' : '+ Nuevo usuario'}
+            </button>
+          )}
         </div>
 
-        {/* FORMULARIO */}
-        {showForm && (
+        {showForm && currentRole !== 'VENDEDOR' && (
           <form
             onSubmit={handleSubmit}
             style={{
@@ -134,13 +177,7 @@ export default function Users() {
                 key={f.name}
                 style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
               >
-                <label
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: '#374151',
-                  }}
-                >
+                <label style={{ fontSize: 12, fontWeight: 600 }}>
                   {f.label}
                 </label>
                 <input
@@ -161,15 +198,7 @@ export default function Users() {
             ))}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: '#374151',
-                }}
-              >
-                Rol
-              </label>
+              <label style={{ fontSize: 12, fontWeight: 600 }}>Rol</label>
               <select
                 name="role"
                 value={form.role}
@@ -178,15 +207,44 @@ export default function Users() {
                   padding: '12px',
                   borderRadius: 10,
                   border: '1px solid #d1d5db',
-                  fontSize: 14,
-                  background: '#fff',
                 }}
               >
                 <option value="VENDEDOR">Vendedor</option>
-                <option value="SUPERVISOR">Supervisor</option>
-                <option value="ADMIN">Administrador</option>
+
+                {currentRole === 'ADMIN' && (
+                  <>
+                    <option value="SUPERVISOR">Supervisor</option>
+                    <option value="ADMIN">Administrador</option>
+                  </>
+                )}
               </select>
             </div>
+
+            {form.role === 'VENDEDOR' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 600 }}>
+                  Supervisor
+                </label>
+                <select
+                  name="supervisor_id"
+                  value={form.supervisor_id}
+                  onChange={handleChange}
+                  required
+                  style={{
+                    padding: '12px',
+                    borderRadius: 10,
+                    border: '1px solid #d1d5db',
+                  }}
+                >
+                  <option value="">Seleccionar supervisor</option>
+                  {supervisors.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <button
               type="submit"
@@ -201,7 +259,6 @@ export default function Users() {
                 color: '#fff',
                 background: 'linear-gradient(135deg, #22c55e, #16a34a)',
                 cursor: 'pointer',
-                boxShadow: '0 8px 24px rgba(34,197,94,.35)',
               }}
             >
               Crear usuario
@@ -209,7 +266,6 @@ export default function Users() {
           </form>
         )}
 
-        {/* TABLA */}
         <table width="100%" cellPadding="14">
           <thead>
             <tr style={{ textAlign: 'left', color: '#6b7280' }}>
@@ -217,6 +273,7 @@ export default function Users() {
               <th>Email</th>
               <th>Rol</th>
               <th>Estado</th>
+              <th>Supervisor asignado</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -225,24 +282,7 @@ export default function Users() {
               <tr key={u.id} style={{ borderTop: '1px solid #e5e7eb' }}>
                 <td>{u.name}</td>
                 <td>{u.email}</td>
-                <td>
-                  <span
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: 999,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      background:
-                        u.role === 'ADMIN'
-                          ? '#fee2e2'
-                          : u.role === 'SUPERVISOR'
-                          ? '#fef3c7'
-                          : '#e0f2fe',
-                    }}
-                  >
-                    {u.role}
-                  </span>
-                </td>
+                <td>{u.role}</td>
                 <td
                   style={{
                     fontWeight: 600,
@@ -251,55 +291,23 @@ export default function Users() {
                 >
                   {u.active ? 'Activo' : 'Inactivo'}
                 </td>
+                <td>{u.supervisor_name || '—'}</td>
                 <td>
                   {u.role === 'ADMIN' ? (
-                    <span
-                      style={{
-                        fontSize: 12,
-                        color: '#9ca3af',
-                        fontStyle: 'italic',
-                      }}
-                    >
+                    <span style={{ fontSize: 12, color: '#9ca3af' }}>
                       Protegido
                     </span>
                   ) : u.active ? (
-                    <button
-                      onClick={() => handleDeactivate(u)}
-                      style={{
-                        padding: '6px 12px',
-                        borderRadius: 8,
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: '#fff',
-                        background: '#dc2626',
-                      }}
-                    >
-                      Eliminar
-                    </button>
+                    <button onClick={() => handleDeactivate(u)}>Eliminar</button>
                   ) : (
-                    <button
-                      onClick={() => handleActivate(u)}
-                      style={{
-                        padding: '6px 12px',
-                        borderRadius: 8,
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: '#fff',
-                        background: '#16a34a',
-                      }}
-                    >
-                      Activar
-                    </button>
+                    <button onClick={() => handleActivate(u)}>Activar</button>
                   )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+
       </div>
     </div>
   );

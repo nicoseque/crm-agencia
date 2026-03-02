@@ -5,17 +5,16 @@ function Pipeline({
   columns,
   onSelectLead,
   onDropLead,
-  forceShowExpired // 👈 NUEVO (viene del Dashboard)
+  onRequestApprove, // 👈 NUEVO
+  forceShowExpired
 }) {
   const [showExpiredOnly, setShowExpiredOnly] = useState(false);
 
-  // Si el Dashboard fuerza el filtro, tiene prioridad
   const activeFilter =
     typeof forceShowExpired === 'boolean'
       ? forceShowExpired
       : showExpiredOnly;
 
-  // ---------- FILTRO DE LEADS ----------
   const filterLeads = (leads = []) => {
     if (!activeFilter) return leads;
 
@@ -37,6 +36,17 @@ function Pipeline({
     });
   };
 
+  const handleDrop = (lead, newStatus) => {
+    // 🔥 SI SE SUELTA EN APROBADO → NO CAMBIAMOS STATUS
+    if (newStatus === 'APROBADO') {
+      onRequestApprove?.(lead);
+      return;
+    }
+
+    // 👉 resto de estados normal
+    onDropLead?.(lead.id, newStatus);
+  };
+
   return (
     <div
       style={{
@@ -52,9 +62,9 @@ function Pipeline({
           key={col.id}
           title={col.name}
           status={col.status}
-          leads={filterLeads(col.leads)} // 👈 APLICA FILTRO
+          leads={filterLeads(col.leads)}
           onSelect={onSelectLead}
-          onDropLead={onDropLead}
+          onDropLead={handleDrop} // 👈 USAMOS EL HANDLER
         />
       ))}
     </div>
