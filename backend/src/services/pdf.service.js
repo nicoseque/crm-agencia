@@ -1,19 +1,18 @@
-const puppeteer = require('puppeteer');
+const chromium = require("@sparticuz/chromium");
+const puppeteer = require("puppeteer-core");
 
 async function generateQuotePdf(quote) {
   let browser;
 
   try {
     browser = await puppeteer.launch({
-  args: chromium.args,
-  defaultViewport: chromium.defaultViewport,
-  executablePath: await chromium.executablePath(),
-  headless: chromium.headless
-});
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless
+    });
 
     const page = await browser.newPage();
-
-    /* ================= HELPERS ================= */
 
     const safe = (v, f = '-') =>
       v === undefined || v === null || v === '' ? f : v;
@@ -25,11 +24,10 @@ async function generateQuotePdf(quote) {
         minimumFractionDigits: 0
       }).format(Number(value || 0));
 
-    /* ================= HTML ================= */
-
     const html = `
     <html>
       <head>
+        <meta charset="UTF-8" />
         <style>
           body { font-family: Arial; padding: 48px; font-size: 13px; }
           .header { display:grid; grid-template-columns:auto 1fr auto; border-bottom:2px solid #e5e5e5; padding-bottom:16px; margin-bottom:32px }
@@ -44,12 +42,14 @@ async function generateQuotePdf(quote) {
           .used-note { margin-top:10px; font-size:11px; color:#555; font-style:italic }
         </style>
       </head>
-
       <body>
         <div class="header">
           <div></div>
           <div class="title">PRESUPUESTO COMERCIAL</div>
-          <div class="meta">Nº ${quote.id}<br/>Fecha: ${new Date(quote.created_at).toLocaleDateString()}</div>
+          <div class="meta">
+            Nº ${quote.id}<br/>
+            Fecha: ${new Date(quote.created_at).toLocaleDateString()}
+          </div>
         </div>
 
         <div class="section">
@@ -101,11 +101,18 @@ async function generateQuotePdf(quote) {
     </html>
     `;
 
-    await page.setContent(html, { waitUntil: 'load' });
+    await page.setContent(html, { waitUntil: 'networkidle0' });
 
-    const pdf = await page.pdf({ format: 'A4', printBackground: true });
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true
+    });
 
     return Buffer.from(pdf);
+
+  } catch (error) {
+    console.error("❌ PDF ERROR:", error);
+    throw error;
   } finally {
     if (browser) await browser.close();
   }
