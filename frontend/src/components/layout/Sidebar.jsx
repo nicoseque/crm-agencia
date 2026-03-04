@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 function Sidebar() {
   const handleLogout = () => {
     localStorage.removeItem('token');
-    window.location.href = '/login';
+    window.location.href = '/';
   };
 
   // 🔐 obtener rol desde el token
