@@ -11,6 +11,7 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
 
   const [form, setForm] = useState({
     product: '',
+    product_id: '',
     total_amount: '',
     client_first_name: '',
     client_last_name: '',
@@ -28,7 +29,8 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
     vehicle_version: '',
     vehicle_year: '',
     vehicle_price: '',
-    benefits: ''
+    benefits: '',
+    plan_type: ''
   });
 
   useEffect(() => {
@@ -57,6 +59,21 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
     }));
   };
 
+  const handleProductChange = (e) => {
+    const productId = Number(e.target.value);
+    const p = products.find(x => x.id === productId);
+    if (!p) return;
+
+    setForm(prev => ({
+      ...prev,
+      product_id: productId,
+      product: `${p.model} – Plan ${p.plan_type}`,
+      total_amount: p.vehicle_value || '',
+      installments_qty: p.installments || '',
+      plan_type: p.plan_type || ''
+    }));
+  };
+
   const handleSubmit = async e => {
     e.preventDefault();
     setLoading(true);
@@ -71,7 +88,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
         installment_final: Number(form.installment_final),
         installment_pure: Number(form.installment_pure),
         retiro_from_installment: Number(form.retiro_from_installment),
-        retiro_costs: form.retiro_costs,
         vehicle_year: form.has_used_vehicle ? Number(form.vehicle_year) : null,
         vehicle_price: form.has_used_vehicle ? Number(form.vehicle_price) : null
       });
@@ -96,15 +112,7 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
         <form onSubmit={handleSubmit} style={formStyle}>
           
           <Section title="Producto">
-            <select required onChange={e => {
-              const p = products.find(x => x.id === Number(e.target.value));
-              if (!p) return;
-              setForm(prev => ({
-                ...prev,
-                product: `${p.model} – Plan ${p.plan_type}`,
-                total_amount: ''
-              }));
-            }}>
+            <select required value={form.product_id} onChange={handleProductChange}>
               <option value="">Seleccionar producto</option>
               {products.map(p => (
                 <option key={p.id} value={p.id}>
@@ -118,9 +126,12 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
                 type="number"
                 name="total_amount"
                 value={form.total_amount}
-                onChange={handleChange}
-                required
+                readOnly
               />
+            </Field>
+
+            <Field label="Tipo de plan">
+              <input value={form.plan_type} readOnly />
             </Field>
           </Section>
 
@@ -147,20 +158,30 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
           <Section title="Datos del plan">
             <Grid>
               <Field label="Cantidad de cuotas">
-                <input type="number" name="installments_qty" value={form.installments_qty} onChange={handleChange} required />
+                <input
+                  type="number"
+                  name="installments_qty"
+                  value={form.installments_qty}
+                  readOnly
+                />
               </Field>
+
               <Field label="Cuota final">
                 <input type="number" name="installment_final" value={form.installment_final} onChange={handleChange} required />
               </Field>
+
               <Field label="Cuota pura">
                 <input type="number" name="installment_pure" value={form.installment_pure} onChange={handleChange} required />
               </Field>
+
               <Field label="Retiro desde cuota">
                 <input type="number" name="retiro_from_installment" value={form.retiro_from_installment} onChange={handleChange} required />
               </Field>
+
               <Field label="Mecanismos">
                 <input name="mechanisms" value={form.mechanisms} onChange={handleChange} />
               </Field>
+
               <Field label="Gastos de retiro (%)">
                 <input
                   type="text"
@@ -170,6 +191,7 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
                   placeholder="Ej: 10% o A definir"
                 />
               </Field>
+
               <Field label="Adjudicación programada">
                 <input name="adjudication_programmed" value={form.adjudication_programmed} onChange={handleChange} />
               </Field>
@@ -182,7 +204,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
             </label>
           </Section>
 
-          {/* 🔥 BENEFICIOS PERFECTAMENTE ALINEADO */}
           <Section title={`Beneficios para ${form.client_first_name || 'el cliente'}`}>
             <Field>
               <textarea

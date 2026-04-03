@@ -142,7 +142,7 @@ function Products() {
                 borderBottom: '1px solid #e5e7eb'
               }}
             >
-              <th style={{ padding: 12 }}>Modelo</th>
+              <th style={{ padding: 12 }}>Marca y Modelo</th>
               <th style={{ padding: 12 }}>Plan</th>
               <th style={{ padding: 12 }}>Cuotas</th>
               <th style={{ padding: 12, textAlign: 'right' }}>
@@ -239,7 +239,7 @@ function Products() {
             </h2>
 
             <input
-              placeholder="Modelo y versión"
+              placeholder="Marca, Modelo y versión"
               value={form.model}
               onChange={e =>
                 setForm({ ...form, model: e.target.value })
