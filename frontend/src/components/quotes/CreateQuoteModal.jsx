@@ -23,7 +23,7 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
     installment_pure: '',
     retiro_from_installment: '',
     mechanisms: '',
-    retiro_costs: '',
+    retiro_costs: '', // 👈 ahora texto
     adjudication_programmed: '',
 
     has_used_vehicle: false,
@@ -76,7 +76,10 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
         installment_final: Number(form.installment_final),
         installment_pure: Number(form.installment_pure),
         retiro_from_installment: Number(form.retiro_from_installment),
-        retiro_costs: Number(form.retiro_costs),
+
+        // 🔥 CAMBIO CLAVE
+        retiro_costs: form.retiro_costs,
+
         vehicle_year: form.has_used_vehicle ? Number(form.vehicle_year) : null,
         vehicle_price: form.has_used_vehicle ? Number(form.vehicle_price) : null
       });
@@ -99,7 +102,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
         </div>
 
         <form onSubmit={handleSubmit} style={formStyle}>
-          {/* PRODUCTO */}
           <Section title="Producto">
             <select
               required
@@ -132,7 +134,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
             </Field>
           </Section>
 
-          {/* CLIENTE */}
           <Section title="Cliente">
             <Grid>
               <Field label="Nombre">
@@ -144,7 +145,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
             </Grid>
           </Section>
 
-          {/* VENDEDOR */}
           <Section title="Vendedor">
             <select name="seller_id" value={form.seller_id} onChange={handleChange} required>
               <option value="">Seleccionar vendedor</option>
@@ -154,7 +154,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
             </select>
           </Section>
 
-          {/* PLAN */}
           <Section title="Datos del plan">
             <Grid>
               <Field label="Cantidad de cuotas">
@@ -172,16 +171,24 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
               <Field label="Mecanismos">
                 <input name="mechanisms" value={form.mechanisms} onChange={handleChange} />
               </Field>
+
+              {/* 🔥 FIX ACA */}
               <Field label="Gastos de retiro (%)">
-                <input type="number" name="retiro_costs" value={form.retiro_costs} onChange={handleChange} />
+                <input
+                  type="text"
+                  name="retiro_costs"
+                  value={form.retiro_costs}
+                  onChange={handleChange}
+                  placeholder="Ej: 10% o A definir"
+                />
               </Field>
+
               <Field label="Adjudicación programada">
                 <input name="adjudication_programmed" value={form.adjudication_programmed} onChange={handleChange} />
               </Field>
             </Grid>
           </Section>
 
-          {/* USADO */}
           <Section title="¿Entrega vehículo usado en parte de pago?">
             <label style={{ fontSize: 13 }}>
               <input
@@ -214,7 +221,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
             )}
           </Section>
 
-          {/* BENEFICIOS */}
           <Section title={`Beneficios para ${form.client_first_name || 'el cliente'}`}>
             <textarea name="benefits" rows={3} value={form.benefits} onChange={handleChange} />
           </Section>
@@ -233,7 +239,7 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
   );
 }
 
-/* UI helpers + styles (idénticos a los que ya usás) */
+/* estilos */
 
 const Section = ({ title, children }) => (
   <div>
