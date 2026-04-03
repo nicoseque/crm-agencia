@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getAllQuotes } from '../services/quotes.service';
 
 const statusConfig = {
@@ -10,6 +11,8 @@ const statusConfig = {
 };
 
 function Quotes() {
+  const navigate = useNavigate();
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('TODOS');
   const [quotes, setQuotes] = useState([]);
@@ -57,7 +60,6 @@ function Quotes() {
           boxShadow: '0 12px 30px rgba(0,0,0,.06)'
         }}
       >
-        {/* HEADER */}
         <div
           style={{
             display: 'flex',
@@ -88,7 +90,6 @@ function Quotes() {
           />
         </div>
 
-        {/* MÉTRICAS */}
         <div
           style={{
             display: 'grid',
@@ -104,7 +105,6 @@ function Quotes() {
           <MetricCard label="Cancelados" value={metrics.CANCELADO || 0} />
         </div>
 
-        {/* FILTROS (TABS) */}
         <div
           style={{
             display: 'flex',
@@ -136,7 +136,6 @@ function Quotes() {
           })}
         </div>
 
-        {/* TABLA */}
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
             <thead>
@@ -148,11 +147,12 @@ function Quotes() {
                 <th>Monto</th>
                 <th>Estado</th>
                 <th>Fecha</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} style={{ padding: 20 }}>Cargando…</td></tr>
+                <tr><td colSpan={8} style={{ padding: 20 }}>Cargando…</td></tr>
               ) : (
                 filteredQuotes.map((q) => (
                   <tr key={q.id} style={{ background: '#f9fafb' }}>
@@ -180,6 +180,37 @@ function Quotes() {
                     <td style={{ padding: 12 }}>
                       {new Date(q.created_at).toLocaleDateString()}
                     </td>
+
+                    {/* 🔥 BOTÓN VER PDF */}
+                    <td style={{ padding: 12 }}>
+                      <button
+                        onClick={() => {
+                          const token = localStorage.getItem('token');
+
+                          fetch(`${import.meta.env.VITE_API_URL}/quotes/${q.id}/pdf`, {
+                            headers: {
+                              Authorization: `Bearer ${token}`
+                            }
+                          })
+                            .then(res => res.blob())
+                            .then(blob => {
+                              const url = window.URL.createObjectURL(blob);
+                              window.open(url, '_blank');
+                            });
+                        }}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: 6,
+                          border: 'none',
+                          background: '#2563eb',
+                          color: '#fff',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Ver
+                      </button>
+                    </td>
+
                   </tr>
                 ))
               )}
@@ -191,7 +222,6 @@ function Quotes() {
   );
 }
 
-/* Cards de métricas */
 function MetricCard({ label, value, strong }) {
   return (
     <div

@@ -12,27 +12,22 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
   const [form, setForm] = useState({
     product: '',
     total_amount: '',
-
     client_first_name: '',
     client_last_name: '',
-
     seller_id: '',
-
     installments_qty: '',
     installment_final: '',
     installment_pure: '',
     retiro_from_installment: '',
     mechanisms: '',
-    retiro_costs: '', // 👈 ahora texto
+    retiro_costs: '',
     adjudication_programmed: '',
-
     has_used_vehicle: false,
     vehicle_brand: '',
     vehicle_model: '',
     vehicle_version: '',
     vehicle_year: '',
     vehicle_price: '',
-
     benefits: ''
   });
 
@@ -76,10 +71,7 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
         installment_final: Number(form.installment_final),
         installment_pure: Number(form.installment_pure),
         retiro_from_installment: Number(form.retiro_from_installment),
-
-        // 🔥 CAMBIO CLAVE
         retiro_costs: form.retiro_costs,
-
         vehicle_year: form.has_used_vehicle ? Number(form.vehicle_year) : null,
         vehicle_price: form.has_used_vehicle ? Number(form.vehicle_price) : null
       });
@@ -102,19 +94,17 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
         </div>
 
         <form onSubmit={handleSubmit} style={formStyle}>
+          
           <Section title="Producto">
-            <select
-              required
-              onChange={e => {
-                const p = products.find(x => x.id === Number(e.target.value));
-                if (!p) return;
-                setForm(prev => ({
-                  ...prev,
-                  product: `${p.model} – Plan ${p.plan_type}`,
-                  total_amount: ''
-                }));
-              }}
-            >
+            <select required onChange={e => {
+              const p = products.find(x => x.id === Number(e.target.value));
+              if (!p) return;
+              setForm(prev => ({
+                ...prev,
+                product: `${p.model} – Plan ${p.plan_type}`,
+                total_amount: ''
+              }));
+            }}>
               <option value="">Seleccionar producto</option>
               {products.map(p => (
                 <option key={p.id} value={p.id}>
@@ -171,8 +161,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
               <Field label="Mecanismos">
                 <input name="mechanisms" value={form.mechanisms} onChange={handleChange} />
               </Field>
-
-              {/* 🔥 FIX ACA */}
               <Field label="Gastos de retiro (%)">
                 <input
                   type="text"
@@ -182,7 +170,6 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
                   placeholder="Ej: 10% o A definir"
                 />
               </Field>
-
               <Field label="Adjudicación programada">
                 <input name="adjudication_programmed" value={form.adjudication_programmed} onChange={handleChange} />
               </Field>
@@ -191,38 +178,28 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
 
           <Section title="¿Entrega vehículo usado en parte de pago?">
             <label style={{ fontSize: 13 }}>
-              <input
-                type="checkbox"
-                name="has_used_vehicle"
-                checked={form.has_used_vehicle}
-                onChange={handleChange}
-              />{' '}
-              Sí
+              <input type="checkbox" name="has_used_vehicle" checked={form.has_used_vehicle} onChange={handleChange} /> Sí
             </label>
-
-            {form.has_used_vehicle && (
-              <Grid>
-                <Field label="Marca">
-                  <input name="vehicle_brand" value={form.vehicle_brand} onChange={handleChange} />
-                </Field>
-                <Field label="Modelo">
-                  <input name="vehicle_model" value={form.vehicle_model} onChange={handleChange} />
-                </Field>
-                <Field label="Versión">
-                  <input name="vehicle_version" value={form.vehicle_version} onChange={handleChange} />
-                </Field>
-                <Field label="Año">
-                  <input type="number" name="vehicle_year" value={form.vehicle_year} onChange={handleChange} />
-                </Field>
-                <Field label="Valor estimado">
-                  <input type="number" name="vehicle_price" value={form.vehicle_price} onChange={handleChange} />
-                </Field>
-              </Grid>
-            )}
           </Section>
 
+          {/* 🔥 BENEFICIOS PERFECTAMENTE ALINEADO */}
           <Section title={`Beneficios para ${form.client_first_name || 'el cliente'}`}>
-            <textarea name="benefits" rows={3} value={form.benefits} onChange={handleChange} />
+            <Field>
+              <textarea
+                name="benefits"
+                value={form.benefits}
+                onChange={handleChange}
+                style={{
+                  width: '100%',
+                  minHeight: 150,
+                  padding: 10,
+                  borderRadius: 8,
+                  border: '1px solid #e5e7eb',
+                  resize: 'vertical',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </Field>
           </Section>
 
           {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
@@ -239,8 +216,7 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
   );
 }
 
-/* estilos */
-
+/* helpers */
 const Section = ({ title, children }) => (
   <div>
     <h4 style={{ margin: '10px 0 6px' }}>{title}</h4>
@@ -250,7 +226,7 @@ const Section = ({ title, children }) => (
 
 const Field = ({ label, children }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-    <label style={{ fontSize: 12 }}>{label}</label>
+    {label && <label style={{ fontSize: 12 }}>{label}</label>}
     {children}
   </div>
 );
@@ -261,6 +237,7 @@ const Grid = ({ children }) => (
   </div>
 );
 
+/* estilos */
 const overlay = {
   position: 'fixed',
   inset: 0,

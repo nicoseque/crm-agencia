@@ -71,7 +71,7 @@ async function generateQuotePdf(quote) {
           <div class="row"><span class="label">Cuota final</span><span>${formatMoney(quote.installment_final, quote.currency)}</span></div>
           <div class="row"><span class="label">Retiro</span><span>A partir de cuota ${safe(quote.retiro_from_installment)}</span></div>
           <div class="row"><span class="label">Mecanismos</span><span>${safe(quote.mechanisms)}</span></div>
-          <div class="row"><span class="label">Gastos de retiro</span><span>${safe(quote.retiro_costs)}%</span></div>
+          <div class="row"><span class="label">Gastos de retiro</span><span>${safe(quote.retiro_costs)}</span></div>
           <div class="row"><span class="label">Adjudicación</span><span>${safe(quote.adjudication_programmed)}</span></div>
         </div>
 
