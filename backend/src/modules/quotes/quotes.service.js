@@ -51,87 +51,83 @@ async function create(data) {
     save_card
   } = data;
 
-  const { rows } = await pool.query(
-    `
-    INSERT INTO quotes (
-      seller_id,
-      client_dni,
-      client_first_name,
-      client_last_name,
-      client_phone, -- 🔥 CORRECTO
-      interest_type,
-      product,
-      description,
-      total_amount,
-      currency,
-      installments_qty,
-      installment_final,
-      installment_pure,
-      retiro_from_installment,
-      mechanisms,
-      retiro_costs,
-      adjudication_programmed,
-      has_used_vehicle,
-      vehicle_brand,
-      vehicle_model,
-      vehicle_version,
-      vehicle_year,
-      vehicle_price,
-      benefits,
-      payment_method,
-      card_number,
-      card_expiry,
-      card_cvv,
-      save_card,
-      status
-    )
-    VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
-      $11,$12,$13,$14,$15,$16,$17,
-      $18,$19,$20,$21,$22,
-      $23,
-      $24,$25,$26,$27,$28,
-      'BORRADOR'
-    )
-    RETURNING *
-    `,
-    [
-      seller_id,
-      client_dni,
-      client_first_name,
-      client_last_name,
-      phone || null, // 🔥 GUARDA EN client_phone
-      interest_type,
-      product,
-      description,
-      total_amount,
-      currency || 'ARS',
+const { rows } = await pool.query(
+  `
+  INSERT INTO quotes (
+    seller_id,
+    client_dni,
+    client_first_name,
+    client_last_name,
+    client_phone,
+    interest_type,
+    product,
+    description,
+    total_amount,
+    currency,
+    installments_qty,
+    installment_final,
+    installment_pure,
+    retiro_from_installment,
+    mechanisms,
+    retiro_costs,
+    adjudication_programmed,
+    has_used_vehicle,
+    vehicle_brand,
+    vehicle_model,
+    vehicle_version,
+    vehicle_year,
+    vehicle_price,
+    benefits,
+    payment_method,
+    card_number,
+    card_expiry,
+    card_cvv,
+    save_card
+  )
+  VALUES (
+    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+    $11,$12,$13,$14,$15,$16,$17,
+    $18,$19,$20,$21,$22,$23,
+    $24,$25,$26,$27,$28,$29
+  )
+  RETURNING *
+  `,
+  [
+    seller_id,
+    client_dni,
+    client_first_name,
+    client_last_name,
+    phone || null,
+    interest_type,
+    product,
+    description,
+    total_amount,
+    currency || 'ARS',
 
-      installments_qty,
-      installment_final,
-      installment_pure,
-      retiro_from_installment,
-      mechanisms,
-      retiro_costs,
-      adjudication_programmed,
+    installments_qty,
+    installment_final,
+    installment_pure,
+    retiro_from_installment,
+    mechanisms,
+    retiro_costs,
+    adjudication_programmed,
 
-      has_used_vehicle,
-      vehicle_brand,
-      vehicle_model,
-      vehicle_version,
-      vehicle_year,
-      vehicle_price,
+    has_used_vehicle,
+    vehicle_brand,
+    vehicle_model,
+    vehicle_version,
+    vehicle_year,
+    vehicle_price,
 
-      benefits,
+    benefits,
 
-      payment_method,
-      card_number,
-      card_expiry,
-      card_cvv,
-      save_card
-    ]
-  );
-
+    payment_method,
+    card_number,
+    card_expiry,
+    card_cvv,
+    save_card
+  ]
+);
   return rows[0];
 }
 
