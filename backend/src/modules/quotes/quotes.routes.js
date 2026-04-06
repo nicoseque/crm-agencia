@@ -3,6 +3,7 @@ const router = express.Router();
 
 const quotesController = require('./quotes.controller');
 const auth = require('../../middlewares/auth.middleware');
+const { generateQuotePdf } = require('../../services/pdf.service');
 
 console.log('🟢 quotes.routes.js cargado');
 
@@ -64,5 +65,38 @@ router.get(
   auth(),
   quotesController.getDashboardKpis
 );
+
+// 🔓 PDF PUBLICO (SIN TOKEN)
+router.get('/public/:id/pdf', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(`
+      SELECT *
+      FROM quotes
+      WHERE id = $1
+    `, [id]);
+
+    const quote = result.rows[0];
+
+    if (!quote) {
+      return res.status(404).send('No encontrado');
+    }
+
+    const pdfBuffer = await generateQuotePdf(quote);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="presupuesto_${quote.id}.pdf"`
+    );
+
+    res.end(pdfBuffer);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error PDF');
+  }
+});
 
 module.exports = router;

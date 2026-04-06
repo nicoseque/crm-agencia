@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAllQuotes } from '../services/quotes.service';
 import CreateQuoteModal from '../components/quotes/CreateQuoteModal'; // 🔥 IMPORT
+import { updateQuoteStatus } from '../services/quotes.service';
 
 const statusConfig = {
   TODOS: { label: 'Todos', color: '#111827', bg: '#f3f4f6' },
@@ -18,8 +19,7 @@ function Quotes() {
   const [statusFilter, setStatusFilter] = useState('TODOS');
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  const [showCreateModal, setShowCreateModal] = useState(false); // 🔥 NUEVO
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const loadQuotes = async (value = '') => {
     setLoading(true);
@@ -53,6 +53,46 @@ function Quotes() {
     return quotes.filter(q => q.status === statusFilter);
   }, [quotes, statusFilter]);
 
+  // 🔥 WHATSAPP FUNCTION
+  const handleWhatsApp = async (q) => {
+    try {
+      if (!q.client_phone) {
+        alert('El cliente no tiene teléfono');
+        return;
+      }
+
+      let phone = q.client_phone.replace(/\D/g, '');
+
+      if (phone.startsWith('0')) phone = phone.substring(1);
+      if (!phone.startsWith('54')) phone = '54' + phone;
+
+const message = `Hola ${q.client_first_name}! 👋
+
+Te preparé este presupuesto:
+
+🚗 ${q.product}
+💰 ${Number(q.total_amount).toLocaleString()} ${q.currency}
+
+📄 Podés verlo acá:
+${import.meta.env.VITE_API_URL}/quotes/public/${q.id}/pdf
+
+Si te interesa, podemos avanzar hoy mismo 👍`;
+      const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+
+      window.open(url, '_blank');
+
+      // 🔥 CAMBIA ESTADO
+      if (q.status !== 'ENVIADO') {
+        await updateQuoteStatus(q.id, 'ENVIADO');
+        await loadQuotes();
+      }
+
+    } catch (err) {
+      console.error(err);
+      alert('Error enviando WhatsApp');
+    }
+  };
+
   return (
     <div style={{ padding: 24 }}>
       <div
@@ -79,7 +119,6 @@ function Quotes() {
             </div>
           </div>
 
-          {/* 🔥 BOTÓN NUEVO */}
           <div style={{ display: 'flex', gap: 12 }}>
             <input
               type="text"
@@ -206,7 +245,9 @@ function Quotes() {
                       {new Date(q.created_at).toLocaleDateString()}
                     </td>
 
-                    <td style={{ padding: 12 }}>
+                    {/* 🔥 ACCIONES */}
+                    <td style={{ padding: 12, display: 'flex', gap: 8 }}>
+                      {/* VER */}
                       <button
                         onClick={() => {
                           const token = localStorage.getItem('token');
@@ -233,7 +274,23 @@ function Quotes() {
                       >
                         Ver
                       </button>
+
+                      {/* WHATSAPP */}
+                      <button
+                        onClick={() => handleWhatsApp(q)}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: 6,
+                          border: 'none',
+                          background: '#16a34a',
+                          color: '#fff',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        WhatsApp
+                      </button>
                     </td>
+
                   </tr>
                 ))
               )}
@@ -242,14 +299,14 @@ function Quotes() {
         </div>
       </div>
 
-      {/* 🔥 MODAL */}
+      {/* MODAL */}
       {showCreateModal && (
         <CreateQuoteModal
           open={showCreateModal}
           onClose={() => setShowCreateModal(false)}
           onCreated={async () => {
             setShowCreateModal(false);
-            await loadQuotes(); // 🔥 refresca lista
+            await loadQuotes();
           }}
         />
       )}
