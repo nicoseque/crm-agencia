@@ -93,10 +93,12 @@ router.get('/public/:id/pdf', async (req, res) => {
 
     res.end(pdfBuffer);
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Error PDF');
-  }
+  } 
+  
+  catch (err) {
+  console.error("🔥 ERROR REAL PDF:", err);
+  res.status(500).send(err.message);
+}
 });
 
 module.exports = router;
