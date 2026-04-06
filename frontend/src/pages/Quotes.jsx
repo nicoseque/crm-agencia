@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAllQuotes } from '../services/quotes.service';
+import CreateQuoteModal from '../components/quotes/CreateQuoteModal'; // 🔥 IMPORT
 
 const statusConfig = {
   TODOS: { label: 'Todos', color: '#111827', bg: '#f3f4f6' },
@@ -17,6 +18,8 @@ function Quotes() {
   const [statusFilter, setStatusFilter] = useState('TODOS');
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  const [showCreateModal, setShowCreateModal] = useState(false); // 🔥 NUEVO
 
   const loadQuotes = async (value = '') => {
     setLoading(true);
@@ -60,6 +63,7 @@ function Quotes() {
           boxShadow: '0 12px 30px rgba(0,0,0,.06)'
         }}
       >
+        {/* HEADER */}
         <div
           style={{
             display: 'flex',
@@ -75,21 +79,40 @@ function Quotes() {
             </div>
           </div>
 
-          <input
-            type="text"
-            placeholder="Buscar por presupuesto, DNI, cliente, producto…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{
-              width: 360,
-              padding: '12px 14px',
-              borderRadius: 12,
-              border: '1px solid #e5e7eb',
-              fontSize: 14
-            }}
-          />
+          {/* 🔥 BOTÓN NUEVO */}
+          <div style={{ display: 'flex', gap: 12 }}>
+            <input
+              type="text"
+              placeholder="Buscar por presupuesto, DNI, cliente, producto…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                width: 260,
+                padding: '12px 14px',
+                borderRadius: 12,
+                border: '1px solid #e5e7eb',
+                fontSize: 14
+              }}
+            />
+
+            <button
+              onClick={() => setShowCreateModal(true)}
+              style={{
+                background: '#2563eb',
+                color: '#fff',
+                padding: '12px 16px',
+                borderRadius: 10,
+                border: 'none',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              + Nuevo
+            </button>
+          </div>
         </div>
 
+        {/* METRICAS */}
         <div
           style={{
             display: 'grid',
@@ -105,6 +128,7 @@ function Quotes() {
           <MetricCard label="Cancelados" value={metrics.CANCELADO || 0} />
         </div>
 
+        {/* FILTROS */}
         <div
           style={{
             display: 'flex',
@@ -136,6 +160,7 @@ function Quotes() {
           })}
         </div>
 
+        {/* TABLA */}
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
             <thead>
@@ -181,7 +206,6 @@ function Quotes() {
                       {new Date(q.created_at).toLocaleDateString()}
                     </td>
 
-                    {/* 🔥 BOTÓN VER PDF */}
                     <td style={{ padding: 12 }}>
                       <button
                         onClick={() => {
@@ -210,7 +234,6 @@ function Quotes() {
                         Ver
                       </button>
                     </td>
-
                   </tr>
                 ))
               )}
@@ -218,6 +241,18 @@ function Quotes() {
           </table>
         </div>
       </div>
+
+      {/* 🔥 MODAL */}
+      {showCreateModal && (
+        <CreateQuoteModal
+          open={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onCreated={async () => {
+            setShowCreateModal(false);
+            await loadQuotes(); // 🔥 refresca lista
+          }}
+        />
+      )}
     </div>
   );
 }
