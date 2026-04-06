@@ -227,21 +227,55 @@ Si te interesa, podemos avanzar hoy mismo 👍`;
                     <td style={{ padding: 12, fontWeight: 600 }}>
                       {Number(q.total_amount).toLocaleString()} {q.currency}
                     </td>
-                    <td style={{ padding: 12 }}>
-                      <span
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: 999,
-                          fontSize: 12,
-                          fontWeight: 700,
-                          background: statusConfig[q.status]?.bg,
-                          color: statusConfig[q.status]?.color
-                        }}
-                      >
-                        {q.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: 12 }}>
+<td style={{ padding: 12 }}>
+  <select
+    value={q.status}
+    onChange={async (e) => {
+      const newStatus = e.target.value;
+
+      try {
+        await updateQuoteStatus(q.id, newStatus);
+        await loadQuotes();
+      } catch (err) {
+        console.error(err);
+        alert('Error actualizando estado');
+      }
+    }}
+    style={{
+      padding: '6px 10px',
+      borderRadius: 999,
+      border: '1px solid #e5e7eb',
+      fontSize: 12,
+      fontWeight: 700,
+      background: statusConfig[q.status]?.bg,
+      color: statusConfig[q.status]?.color,
+      cursor: 'pointer'
+    }}
+  >
+    {q.status === 'BORRADOR' && (
+      <>
+        <option value="BORRADOR">BORRADOR</option>
+        <option value="ENVIADO">ENVIADO</option>
+        <option value="CANCELADO">CANCELADO</option>
+      </>
+    )}
+
+    {q.status === 'ENVIADO' && (
+      <>
+        <option value="ENVIADO">ENVIADO</option>
+        <option value="APROBADO">APROBADO</option>
+      </>
+    )}
+
+    {q.status === 'APROBADO' && (
+      <option value="APROBADO">APROBADO</option>
+    )}
+
+    {q.status === 'CANCELADO' && (
+      <option value="CANCELADO">CANCELADO</option>
+    )}
+  </select>
+</td>                    <td style={{ padding: 12 }}>
                       {new Date(q.created_at).toLocaleDateString()}
                     </td>
 
