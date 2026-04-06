@@ -85,8 +85,14 @@ router.get('/public/:id/pdf', async (req, res) => {
       return res.status(404).send('No encontrado');
     }
 
-    const pdfBuffer = await generateQuotePdf(quote);
+let pdfBuffer;
 
+try {
+  pdfBuffer = await generateQuotePdf(quote);
+} catch (err) {
+  console.log("⚠️ retry PDF...");
+  pdfBuffer = await generateQuotePdf(quote);
+}
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
