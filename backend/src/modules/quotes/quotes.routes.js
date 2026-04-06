@@ -3,7 +3,9 @@ const router = express.Router();
 
 const quotesController = require('./quotes.controller');
 const auth = require('../../middlewares/auth.middleware');
+const pool = require('../../config/db');
 const { generateQuotePdf } = require('../../services/pdf.service');
+
 
 console.log('🟢 quotes.routes.js cargado');
 
