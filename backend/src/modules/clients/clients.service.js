@@ -13,7 +13,7 @@ const UPDATABLE_FIELDS = [
 ];
 
 /**
- * Crear cliente
+ * Crear cliente (UPSERT por DNI)
  */
 async function create(
   {
@@ -45,6 +45,18 @@ async function create(
       )
     VALUES
       ($1, $2, $3, $4, $5, $6, $7, $8, true, $9)
+
+    ON CONFLICT (dni)
+    DO UPDATE SET
+      name = EXCLUDED.name,
+      last_name = EXCLUDED.last_name,
+      phone = EXCLUDED.phone,
+      email = EXCLUDED.email,
+      address = EXCLUDED.address,
+      notes = EXCLUDED.notes,
+      birth_date = EXCLUDED.birth_date,
+      active = true
+
     RETURNING *
     `,
     [
