@@ -5,6 +5,7 @@ const { generateQuotePdf } = require('../../services/pdf.service');
  * CREAR PRESUPUESTO
  */
 async function create(req, res) {
+  console.log("BODY BACKEND:", req.body);
   try {
     const quote = await service.create({
       ...req.body,

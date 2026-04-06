@@ -20,6 +20,7 @@ async function create(data) {
     client_dni,
     client_first_name,
     client_last_name,
+    phone, // 🔥 viene del front
     interest_type,
     product,
     description,
@@ -57,6 +58,7 @@ async function create(data) {
       client_dni,
       client_first_name,
       client_last_name,
+      client_phone, -- 🔥 CORRECTO
       interest_type,
       product,
       description,
@@ -84,9 +86,9 @@ async function create(data) {
       status
     )
     VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,
-      $10,$11,$12,$13,$14,$15,$16,
-      $17,$18,$19,$20,$21,$22,
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+      $11,$12,$13,$14,$15,$16,$17,
+      $18,$19,$20,$21,$22,
       $23,
       $24,$25,$26,$27,$28,
       'BORRADOR'
@@ -98,6 +100,7 @@ async function create(data) {
       client_dni,
       client_first_name,
       client_last_name,
+      phone || null, // 🔥 GUARDA EN client_phone
       interest_type,
       product,
       description,
@@ -158,7 +161,6 @@ async function send(id, userId) {
 async function list(user) {
   if (!user) throw new Error('Usuario requerido');
 
-  // ADMIN → todos
   if (user.role_id === 1) {
     const { rows } = await pool.query(
       `SELECT * FROM quotes ORDER BY created_at DESC`
@@ -166,7 +168,6 @@ async function list(user) {
     return rows;
   }
 
-  // SUPERVISOR → suyos + equipo
   if (user.role_id === 2) {
     const { rows } = await pool.query(
       `
@@ -183,7 +184,6 @@ async function list(user) {
     return rows;
   }
 
-  // VENDEDOR → solo los suyos
   const { rows } = await pool.query(
     `
     SELECT *
@@ -198,7 +198,7 @@ async function list(user) {
 }
 
 /**
- * BUSCAR PRESUPUESTOS (RESPETA VISIBILIDAD)
+ * BUSCAR PRESUPUESTOS
  */
 async function searchAll(search, user) {
   const base = `
@@ -212,7 +212,6 @@ async function searchAll(search, user) {
     )
   `;
 
-  // ADMIN
   if (user.role_id === 1) {
     const { rows } = await pool.query(
       `${base} ORDER BY created_at DESC`,
@@ -221,7 +220,6 @@ async function searchAll(search, user) {
     return rows;
   }
 
-  // SUPERVISOR
   if (user.role_id === 2) {
     const { rows } = await pool.query(
       `
@@ -239,7 +237,6 @@ async function searchAll(search, user) {
     return rows;
   }
 
-  // VENDEDOR
   const { rows } = await pool.query(
     `
     ${base}
@@ -270,7 +267,7 @@ async function updateStatus(id, status) {
 }
 
 /**
- * APROBAR PRESUPUESTO CON COBRO REAL
+ * APROBAR PRESUPUESTO
  */
 async function approveWithPayment(id, { payment_method, final_amount }) {
   const { rows } = await pool.query(
@@ -291,10 +288,9 @@ async function approveWithPayment(id, { payment_method, final_amount }) {
 }
 
 /**
- * KPIs DASHBOARD POR USUARIO
+ * KPIs
  */
 async function getDashboardKpisByUser(user) {
-  // ADMIN
   if (user.role_id === 1) {
     const { rows } = await pool.query(`
       SELECT
@@ -307,7 +303,6 @@ async function getDashboardKpisByUser(user) {
     return rows[0];
   }
 
-  // SUPERVISOR
   if (user.role_id === 2) {
     const { rows } = await pool.query(
       `
@@ -327,7 +322,6 @@ async function getDashboardKpisByUser(user) {
     return rows[0];
   }
 
-  // VENDEDOR
   const { rows } = await pool.query(
     `
     SELECT

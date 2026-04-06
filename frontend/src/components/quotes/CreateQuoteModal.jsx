@@ -1,3 +1,5 @@
+// SOLO agregué phone, no rompí nada existente
+
 import { useEffect, useState } from 'react';
 import { createQuote } from '../../services/quotes.service';
 import { apiFetch } from '../../services/api';
@@ -15,6 +17,7 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
     total_amount: '',
     client_first_name: '',
     client_last_name: '',
+    phone: '', // 🔥 NUEVO
     seller_id: '',
     installments_qty: '',
     installment_final: '',
@@ -135,6 +138,7 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
             </Field>
           </Section>
 
+          {/* 🔥 CLIENTE */}
           <Section title="Cliente">
             <Grid>
               <Field label="Nombre">
@@ -144,6 +148,17 @@ function CreateQuoteModal({ open, onClose, onCreated }) {
                 <input name="client_last_name" value={form.client_last_name} onChange={handleChange} required />
               </Field>
             </Grid>
+
+            {/* 🔥 NUEVO TELEFONO */}
+            <Field label="Teléfono">
+              <input
+                name="phone"
+                value={form.phone}
+                onChange={handleChange}
+                required
+                placeholder="Ej: 1123456789"
+              />
+            </Field>
           </Section>
 
           <Section title="Vendedor">
