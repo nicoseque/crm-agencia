@@ -31,7 +31,23 @@ function Login() {
       if (!token) throw new Error('Credenciales inválidas');
 
       localStorage.setItem('token', token);
-      navigate('/');
+
+// 🔥 GUARDAR USUARIO
+const user =
+  response?.user ||
+  response?.data?.user;
+
+if (user) {
+  localStorage.setItem('user', JSON.stringify(user));
+} else {
+  // fallback temporal (por si backend no lo manda)
+  localStorage.setItem('user', JSON.stringify({
+    name: email
+  }));
+}
+
+navigate('/');
+
     } catch (err) {
       setError('Email o contraseña incorrectos');
       setShake(true);
